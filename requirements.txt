@@ -1,7 +1,10 @@
 vllm
 torch
 transformers
+datasets
 pandas
 matplotlib
 numpy
 streamlit
+textstat
+tqdm
