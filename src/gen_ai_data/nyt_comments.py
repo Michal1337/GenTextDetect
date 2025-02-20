@@ -5,7 +5,7 @@ from gen_utils import *
 
 RAW_DATA_PATH = "../../data/data_raw/nyt-comments-2020.csv"  # Path to the raw data
 HUMAN_DATA_PATH = "../../data/data_human/nyt_comments_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/nyt_comments/nyt_comments_"  # Path to save the generated data
+AI_DATA_PATH = "../../data/data_ai/nyt_comments/nyt-comments_"  # Path to save the generated data
 
 
 PROMPT_COLS = ["abstract", "commentBody"]  # Columns with the prompt data

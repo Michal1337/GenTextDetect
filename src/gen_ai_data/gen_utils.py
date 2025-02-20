@@ -86,7 +86,7 @@ def generate_texts(prompts, llms, sampling_params, batch_size, base_path):
         # init csv file
         with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
-            writer.writerow(["prompt", "response", "temperature", "top_p", "top_k"])
+            writer.writerow(["prompt", "text", "temperature", "top_p", "top_k"])
 
         cnt = 0
         print(f"Generating texts for {llm}...")

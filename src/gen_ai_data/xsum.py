@@ -10,7 +10,7 @@ AI_DATA_PATH = "../../data/data_ai/xsum/xsum_"  # Path to save the generated dat
 
 PROMPT_COLS = ["summary"]  # Columns with the prompt data
 TEXT_COL = "document"  # Column with the text data
-TO_DROP = ["summary", "id"]  # Columns to drop from the human data
+TO_DROP = ["summary", "id", "summary_length", "document_length"]  # Columns to drop from the human data
 BASE_PROMPT = [
     {
         "role": "system",

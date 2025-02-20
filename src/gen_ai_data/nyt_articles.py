@@ -5,7 +5,7 @@ from gen_utils import *
 
 RAW_DATA_PATH = "../../data/data_raw/nyt-articles-2020.csv"  # Path to the raw data
 HUMAN_DATA_PATH = "../../data/data_human/nyt_articles_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/nyt_articles/nyt_articles_"  # Path to save the generated data
+AI_DATA_PATH = "../../data/data_ai/nyt_articles/nyt-articles_"  # Path to save the generated data
 
 
 PROMPT_COLS = ["headline", "keywords"]  # Columns with the prompt data

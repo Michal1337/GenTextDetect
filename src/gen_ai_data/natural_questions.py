@@ -10,7 +10,7 @@ np.random.seed(SEED)
 DS_NAME = "google-research-datasets/natural_questions"  # Path to the raw data
 RAW_DATA_PATH = "../../data/data_raw/natural_questions.csv"  # Path to save the raw data
 HUMAN_DATA_PATH = "../../data/data_human/natural_questions_human.csv" # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/natural_questions/natural_questions_"  # Path to save the generated data
+AI_DATA_PATH = "../../data/data_ai/natural_questions/natural-questions_"  # Path to save the generated data
 
 PROMPT_COLS = ["document", "question"]  # Columns with the prompt data
 TEXT_COL = "answer"  # Column with the text data

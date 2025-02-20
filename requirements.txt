@@ -8,3 +8,5 @@ numpy
 streamlit
 textstat
 tqdm
+nltk
+spacy
