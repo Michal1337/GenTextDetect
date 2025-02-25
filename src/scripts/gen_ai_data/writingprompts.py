@@ -8,8 +8,8 @@ from gen_params import *
 from gen_utils import *
 
 DS_NAME = "euclaise/writingprompts"  # Path to the raw data
-HUMAN_DATA_PATH = "../../data/data_human/writingprompts_human.csv" # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/writingprompts/writingprompts_"  # Path to save the generated data
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "writingprompts_human.csv" # Path to the human data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "writingprompts/writingprompts_"  # Path to save the generated data
 
 PROMPT_COLS = ["prompt"]  # Columns with the prompt data
 TEXT_COL = "story"  # Column with the text data

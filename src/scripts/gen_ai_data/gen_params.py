@@ -2,6 +2,10 @@ from typing import List, Tuple
 
 from vllm import SamplingParams
 
+RAW_DATA_BASE_PATH: str = "../../../data/data_raw/"
+HUMAN_DATA_BASE_PATH: str = "../../../data/data_human/"
+AI_DATA_BASE_PATH: str = "../../../data/data_ai/"
+
 SEED: int = 1337
 MAX_TOKENS_PROMPT: int = 32_768
 MAX_TOKENS_GENERATE: int = 30_000

@@ -5,8 +5,8 @@ from gen_params import *
 from gen_utils import *
 
 DS_NAME = "liamdugan/raid"  # Path to the raw data
-HUMAN_DATA_PATH = "../../data/data_human/raid_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/raid/raid_"  # Path to save the generated data
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "raid_human.csv"  # Path to the human data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "raid/raid_"  # Path to save the generated data
 
 PROMPT_COLS = ["domain", "title"]  # Columns with the prompt data
 TEXT_COL = "generation"  # Column with the text data

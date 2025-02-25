@@ -3,9 +3,9 @@ import pandas as pd
 from gen_params import *
 from gen_utils import *
 
-RAW_DATA_PATH = "../../data/data_raw/reddit.csv"  # Path to the raw data
-HUMAN_DATA_PATH = "../../data/data_human/reddit_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/reddit/reddit_"  # Path to save the generated data
+RAW_DATA_PATH = RAW_DATA_BASE_PATH + "reddit.csv"  # Path to the raw data
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "reddit_human.csv"  # Path to the human data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "reddit/reddit_"  # Path to save the generated data
 
 PROMPT_COLS = ["body", "subreddit"]  # Columns with the prompt data
 TEXT_COL = "body"  # Column with the text data

@@ -5,8 +5,8 @@ from gen_params import *
 from gen_utils import *
 
 DS_NAME = "EdinburghNLP/xsum"  # Path to the raw data
-HUMAN_DATA_PATH = "../../data/data_human/xsum_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/xsum/xsum_"  # Path to save the generated data
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "xsum_human.csv"  # Path to the human data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "xsum/xsum_"  # Path to save the generated data
 
 PROMPT_COLS = ["summary"]  # Columns with the prompt data
 TEXT_COL = "document"  # Column with the text data

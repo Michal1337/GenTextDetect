@@ -3,9 +3,9 @@ import pandas as pd
 from gen_params import *
 from gen_utils import *
 
-RAW_DATA_PATH = "../../data/data_raw/essays.csv"  # Path to the raw data
-HUMAN_DATA_PATH = "../../data/data_human/essays_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/essays/essays_"  # Path to save the generated data
+RAW_DATA_PATH = RAW_DATA_BASE_PATH + "essays.csv"  # Path to the raw data
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "essays_human.csv"  # Path to the human data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "essays/essays_"  # Path to save the generated data
 
 PROMPT_COLS = ["text"]  # Columns with the prompt data
 TEXT_COL = "text"  # Column with the text data

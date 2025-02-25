@@ -3,9 +3,9 @@ import pandas as pd
 from gen_params import *
 from gen_utils import *
 
-RAW_DATA_PATH = "../../data/data_raw/nyt-articles-2020.csv"  # Path to the raw data
-HUMAN_DATA_PATH = "../../data/data_human/nyt_articles_human.csv"  # Path to the human data
-AI_DATA_PATH = "../../data/data_ai/nyt_articles/nyt-articles_"  # Path to save the generated data
+RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-articles-2020.csv"  # Path to the raw data
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt_articles_human.csv"  # Path to the human data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "nyt_articles/nyt-articles_"  # Path to save the generated data
 
 
 PROMPT_COLS = ["headline", "keywords"]  # Columns with the prompt data
