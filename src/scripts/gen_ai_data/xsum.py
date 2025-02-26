@@ -10,14 +10,19 @@ AI_DATA_PATH = AI_DATA_BASE_PATH + "xsum/xsum_"  # Path to save the generated da
 
 PROMPT_COLS = ["summary"]  # Columns with the prompt data
 TEXT_COL = "document"  # Column with the text data
-TO_DROP = ["summary", "id", "summary_length", "document_length"]  # Columns to drop from the human data
+TO_DROP = [
+    "summary",
+    "id",
+    "summary_length",
+    "document_length",
+]  # Columns to drop from the human data
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful assistant for writing news articles based on provided one sentence summaries. Based on provided summary generate a news article. MAKE SURE TO REPLAY ONLY WITH THE NEWS ARTICLE.",
+        "content": "You are a helpful assistant for writing news articles based on provided one-sentence summaries. Based on the given summary, generate a full news article. MAKE SURE TO REPLY ONLY WITH THE NEWS ARTICLE.",
     },
-    {"role": "user", "content": "Summary: \n {summary}"},
-    {"role": "assistant", "content": "News article: \n"},
+    {"role": "user", "content": "Summary:\n{summary}"},
+    {"role": "assistant", "content": "News article:\n"},
 ]
 BATCH_SIZE = 8  # Number of prompts to generate at once
 

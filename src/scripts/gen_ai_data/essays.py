@@ -19,7 +19,7 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful asistant for rewritting students' essays. Based on provided essay generate a similar one. MAKE SURE TO REPLAY ONLY WITH THE SIMILAR ESSAY.",
+        "content": "You are a helpful assistant for rewriting students' essays. Based on the provided essay, generate a similar one in a natural and authentic tone, maintaining the same meaning but rephrased. Ensure the rewritten essay matches the length of the original, and avoids overly formal or advanced phrasing. MAKE SURE TO REPLY ONLY WITH THE SIMILAR ESSAY.",
     },
     {"role": "user", "content": "Essay: \n {essay}"},
     {"role": "assistant", "content": "Similar essay: \n"},

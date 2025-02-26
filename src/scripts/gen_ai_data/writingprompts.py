@@ -17,11 +17,12 @@ TO_DROP = ["prompt", "prompt_length"]  # Columns to drop from the human data
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful assistant for writing stories based on provided prompt. Based on provided prompt generate a story. MAKE SURE TO REPLAY ONLY WITH THE STORY.",
+        "content": "You are a helpful assistant for writing stories based on the provided prompt. Based on the given prompt, generate a story that aligns with it. MAKE SURE TO REPLY ONLY WITH THE STORY."
     },
-    {"role": "user", "content": "Prompt: \n {prompt}"},
-    {"role": "assistant", "content": "Story: \n"},
+    {"role": "user", "content": "Prompt:\n{prompt}"},
+    {"role": "assistant", "content": "Story:\n"}
 ]
+
 BATCH_SIZE = 8  # Number of prompts to generate at once
 
 

@@ -21,15 +21,17 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful asistant for rewritting tweets. Based on provided tweet generate a similar one. MAKE SURE TO REPLAY ONLY WITH THE SIMILAR TWEET.",
+        "content": "You are a helpful assistant for rewriting tweets. Based on the provided tweet, generate a similar one while maintaining the original meaning and tone. MAKE SURE TO REPLY ONLY WITH THE SIMILAR TWEET.",
     },
-    {"role": "user", "content": "Tweet: \n {tweet} \n"},
-    {"role": "assistant", "content": "Similar tweet: \n"},
+    {"role": "user", "content": "Tweet:\n{tweet}"},
+    {"role": "assistant", "content": "Similar tweet:\n"},
 ]
 BATCH_SIZE = 8  # Number of prompts to generate at once
 
+
 def standard_chars(s: str) -> bool:
-    return bool(re.match(r'^[a-zA-Z0-9\s.,!?\'\"-]+$', s))
+    return bool(re.match(r"^[a-zA-Z0-9\s.,!?\'\"-]+$", s))
+
 
 if __name__ == "__main__":
     df = pd.read_csv(

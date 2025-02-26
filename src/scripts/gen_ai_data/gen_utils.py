@@ -39,15 +39,23 @@ def generate_responses(
     model: LLM, prompts: List[str], sampling_params: SamplingParams
 ) -> List[str]:
     """Generate a batch of outputs using vLLM with customizable sampling parameters."""
-    outputs = model.chat(prompts, sampling_params=sampling_params, use_tqdm=False)
+    outputs = model.chat(
+        prompts,
+        sampling_params=sampling_params,
+        add_generation_prompt=False,
+        continue_final_message=True,
+        use_tqdm=False,
+    )
 
-    return [remove_surrounding_quotes(sample.outputs[0].text) for sample in outputs]
+    return [preproc_response(sample.outputs[0].text) for sample in outputs]
 
 
-def remove_surrounding_quotes(s: str) -> str:
+def preproc_response(s: str) -> str:
     """
-    Removes single or double quotes from the start and end of the string if they exist.
+    Removes single or double quotes from the start and end of the string if they exist and removes leading newlines and spaces.
     """
+    s = s.lstrip("\n ")
+
     if (s.startswith('"') and s.endswith('"')) or (
         s.startswith("'") and s.endswith("'")
     ):
@@ -80,7 +88,7 @@ def check_for_too_long_prompts(
 
 def generate_texts(prompts, llms, sampling_params, batch_size, base_path):
     for llm, quant in llms:
-        model = LLM(model=llm, dtype="half", max_model_len=10_000, quantization=quant)
+        model = LLM(model=llm, quantization=quant, trust_remote_code=True, seed=SEED)
         csv_path = f"{base_path}{llm.split('/')[-1]}.csv"
 
         # init csv file
@@ -88,7 +96,6 @@ def generate_texts(prompts, llms, sampling_params, batch_size, base_path):
             writer = csv.writer(file)
             writer.writerow(["prompt", "text", "temperature", "top_p", "top_k"])
 
-        cnt = 0
         print(f"Generating texts for {llm}...")
         for prompts_batch in tqdm(
             batchify(prompts, batch_size), total=len(prompts) // batch_size
@@ -103,9 +110,6 @@ def generate_texts(prompts, llms, sampling_params, batch_size, base_path):
                 params.top_p,
                 params.top_k,
             )
-            cnt += 1
-            if cnt > 2:
-                break
 
         df = pd.read_csv(csv_path)
         print(

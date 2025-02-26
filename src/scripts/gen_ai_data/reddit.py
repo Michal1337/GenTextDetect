@@ -18,10 +18,10 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful asistant for rewritting reddit comments. Based on provided comment and subreddit name, on which the comment was posted, generate a similar one. MAKE SURE TO REPLAY ONLY WITH THE SIMILAR COMMENT.",
+        "content": "You are a helpful assistant for rewriting Reddit comments. Based on the provided comment and the subreddit where it was posted, generate a similar comment that fits the context of the subreddit. MAKE SURE TO REPLY ONLY WITH THE SIMILAR COMMENT.",
     },
-    {"role": "user", "content": "Comment: \n {comment} \n Subreddit: {subreddit}"},
-    {"role": "assistant", "content": "Similar comment: \n"},
+    {"role": "user", "content": "Comment:\n{comment}\nSubreddit:\n{subreddit}"},
+    {"role": "assistant", "content": "Similar comment:\n"},
 ]
 BATCH_SIZE = 8  # Number of prompts to generate at once
 

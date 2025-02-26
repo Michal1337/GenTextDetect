@@ -27,10 +27,10 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful asistant for writing article abstracts. Based on provided headline and a list of keywords generate abstract of an article. MAKE SURE TO REPLAY ONLY WITH THE ABSTRACT.",
+        "content": "You are a helpful assistant for writing article abstracts. Based on the provided headline and list of keywords, generate an abstract for the article. Ensure the abstract maintains a similar length to typical article abstracts. MAKE SURE TO REPLY ONLY WITH THE ABSTRACT.",
     },
-    {"role": "user", "content": "Headline: \n {headline} \n  Keywords: \n {keywords}."},
-    {"role": "assistant", "content": "Abstract: \n"},
+    {"role": "user", "content": "Headline:\n{headline}\nKeywords:\n{keywords}"},
+    {"role": "assistant", "content": "Abstract:\n"},
 ]
 BATCH_SIZE = 8  # Number of prompts to generate at once
 

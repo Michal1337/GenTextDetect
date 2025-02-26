@@ -21,11 +21,12 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful asistant for rewritting blogs. Based on provided blog generate a similar one. MAKE SURE TO REPLAY ONLY WITH THE SIMILAR BLOG.",
+        "content": "You are a helpful assistant for rewriting blogs. Based on the provided blog, generate a similar one. Ensure the rewritten blog maintains the same meaning, structure, and similar length. MAKE SURE TO REPLY ONLY WITH THE SIMILAR BLOG.",
     },
-    {"role": "user", "content": "Blog: \n {blog} \n"},
-    {"role": "assistant", "content": "Similar blog: \n"},
+    {"role": "user", "content": "Blog:\n{blog}"},
+    {"role": "assistant", "content": "Similar blog:\n"},
 ]
+
 BATCH_SIZE = 8  # Number of prompts to generate at once
 
 

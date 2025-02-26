@@ -7,10 +7,10 @@ from gen_utils import *
 
 np.random.seed(SEED)
 
-DS_NAME = "google-research-datasets/natural_questions"  # Path to the raw data
-RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv"  # Path to save the raw data
+# DS_NAME = "google-research-datasets/natural_questions"  # Path to the raw data
+RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv" # Path to save the raw data
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "natural_questions_human.csv" # Path to the human data
-AI_DATA_PATH = AI_DATA_BASE_PATH + "natural_questions/natural-questions_"  # Path to save the generated data
+AI_DATA_PATH = AI_DATA_BASE_PATH + "natural_questions/natural-questions_" # Path to save the generated data
 
 PROMPT_COLS = ["document", "question"]  # Columns with the prompt data
 TEXT_COL = "answer"  # Column with the text data
@@ -18,11 +18,12 @@ TO_DROP = ["document", "question"]  # Columns to drop from the human data
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful assistant for answering questions based on provided context. Based on provided context, which will be in a form of a copy of wikipedia article, answer the question. MAKE SURE TO REPLAY ONLY WITH THE ANSWER.",
+        "content": "You are a helpful assistant for answering questions based on the provided context. The context will be a copy of a Wikipedia article. Answer the question based only on the given context. MAKE SURE TO REPLY ONLY WITH THE ANSWER.",
     },
-    {"role": "user", "content": "Context: \n {context} \n Question: {question}"},
-    {"role": "assistant", "content": "Answer: \n"},
+    {"role": "user", "content": "Context:\n{context}\nQuestion: {question}"},
+    {"role": "assistant", "content": "Answer:\n"},
 ]
+
 BATCH_SIZE = 128  # Number of prompts to generate at once
 
 

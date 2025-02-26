@@ -27,10 +27,10 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful assistant specializing in writing texts across various domains, including abstracts and news articles, based on provided titles. Based on provided domain and title generate a text of appropriate length related to the domain and title. MAKE SURE TO REPLAY ONLY WITH THE GENERATED TEXT.",
+        "content": "You are a helpful assistant specializing in writing texts across various domains, including abstracts and news articles, based on provided titles. Based on the given domain and title, generate a text of appropriate length and style that aligns with the specified domain. MAKE SURE TO REPLY ONLY WITH THE GENERATED TEXT.",
     },
-    {"role": "user", "content": "Domain: \n {domain} \n Title: {title}"},
-    {"role": "assistant", "content": "Generated text: \n"},
+    {"role": "user", "content": "Domain:\n{domain}\nTitle:\n{title}"},
+    {"role": "assistant", "content": "Generated text:\n"},
 ]
 BATCH_SIZE = 8  # Number of prompts to generate at once
 

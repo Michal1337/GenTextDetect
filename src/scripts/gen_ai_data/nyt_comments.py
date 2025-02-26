@@ -19,10 +19,10 @@ TO_DROP = [
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful asistant for writing comments based on article abstracts and sample comments. Based on provided article abstract and a sample comment generate similar comment related to the article. MAKE SURE TO REPLAY ONLY WITH THE COMMENT.",
+        "content": "You are a helpful assistant for writing comments based on article abstracts and sample comments. Based on the provided article abstract and sample comment, generate a similar comment related to the article. Ensure the comment matches the tone and length of the sample comment. MAKE SURE TO REPLY ONLY WITH THE COMMENT.",
     },
-    {"role": "user", "content": "Abstract: \n {abstract} \n  Comment: \n {comment}."},
-    {"role": "assistant", "content": "Similar comment: \n"},
+    {"role": "user", "content": "Abstract:\n{abstract}\nComment:\n{comment}"},
+    {"role": "assistant", "content": "Similar comment:\n"},
 ]
 BATCH_SIZE = 8  # Number of prompts to generate at once
 
@@ -30,7 +30,7 @@ BATCH_SIZE = 8  # Number of prompts to generate at once
 if __name__ == "__main__":
     df = pd.read_csv(RAW_DATA_PATH, usecols=["commentBody", "articleID"])
     df_articles = pd.read_csv(
-        "../../data/data_raw/nyt-articles-2020.csv", usecols=["abstract", "uniqueID"]
+        "../../../data/data_raw/nyt-articles-2020.csv", usecols=["abstract", "uniqueID"]
     )
     df = df.join(df_articles.set_index("uniqueID"), on="articleID")
     df.dropna(inplace=True)
