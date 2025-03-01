@@ -12,9 +12,9 @@ PROMPT = [
 
 
 if __name__ == "__main__":
-    for llm, quant in LLMS:
+    for llm, quant, path in LLMS:
         print(f"Testing {llm}...")
-        llm = LLM(model=llm, quantization=quant, trust_remote_code=True, seed=SEED)
+        llm = LLM(model=path, quantization=quant, trust_remote_code=True, seed=SEED)
         response = llm.chat(PROMPT, sampling_params=SAMPLING_PARAMS[0], use_tqdm=False)
         print(response)
         print()

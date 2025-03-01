@@ -31,4 +31,37 @@ SAMPLING_PARAMS: List[SamplingParams] = [
 ]
 
 
-LLMS: List[Tuple[str, Optional[str]]] = [("meta-llama/Llama-3.2-1B-Instruct", None)]
+MODEL_PATH = "/path/to/models/"
+
+LLMS: List[Tuple[str, Optional[str], str]] = [
+    # Meta
+    ("meta-llama/Llama-3.1-8B-Instruct", None, MODEL_PATH + "meta-llama/Llama-3.1-8B-Instruct"),
+    ("unsloth/Meta-Llama-3.1-70B-bnb-4bit", "bitsandbytes", MODEL_PATH + "unsloth/Meta-Llama-3.1-70B-bnb-4bit"),
+    ("meta-llama/Llama-3.2-3B-Instruct", None, MODEL_PATH + "meta-llama/Llama-3.2-3B-Instruct"),
+    ("unsloth/Llama-3.3-70B-Instruct-bnb-4bit", "bitsandbytes", MODEL_PATH + "unsloth/Llama-3.3-70B-Instruct-bnb-4bit"),
+    
+    # Microsoft
+    ("microsoft/Phi-3-mini-128k-instruct", None, MODEL_PATH + "microsoft/Phi-3-mini-128k-instruct"),
+    ("microsoft/Phi-3-small-128k-instruct", None, MODEL_PATH + "microsoft/Phi-3-small-128k-instruct"),
+    ("microsoft/Phi-3-medium-128k-instruct", None, MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct"),
+    ("microsoft/Phi-3.5-mini-instruct", None, MODEL_PATH + "microsoft/Phi-3.5-mini-instruct"),
+    ("microsoft/Phi-4-mini-instruct", None, MODEL_PATH + "microsoft/Phi-4-mini-instruct"),
+    ("microsoft/phi-4", None, MODEL_PATH + "microsoft/phi-4"),
+    
+    # Mistral
+    ("mistralai/Mistral-Nemo-Instruct-2407", None, MODEL_PATH + "mistralai/Mistral-Nemo-Instruct-2407"),
+    ("mistralai/Ministral-8B-Instruct-2410", None, MODEL_PATH + "mistralai/Ministral-8B-Instruct-2410"),
+    
+    # Qwen
+    ("Qwen/Qwen2-72B-Instruct-AWQ", "awq", MODEL_PATH + "Qwen/Qwen2-72B-Instruct-AWQ"),
+    ("Qwen/Qwen2-7B-Instruct", None, MODEL_PATH + "Qwen/Qwen2-7B-Instruct"),
+    ("Qwen/Qwen2.5-72B-Instruct-AWQ", "awq", MODEL_PATH + "Qwen/Qwen2.5-72B-Instruct-AWQ"),
+    ("Qwen/Qwen2.5-14B-Instruct", None, MODEL_PATH + "Qwen/Qwen2.5-14B-Instruct"),
+    ("Qwen/Qwen2.5-7B-Instruct", None, MODEL_PATH + "Qwen/Qwen2.5-7B-Instruct"),
+    ("Qwen/Qwen2.5-3B-Instruct", None, MODEL_PATH + "Qwen/Qwen2.5-3B-Instruct"),
+    
+    # Falcon
+    ("tiiuae/Falcon3-7B-Instruct", None, MODEL_PATH + "tiiuae/Falcon3-7B-Instruct"),
+    ("tiiuae/Falcon3-3B-Instruct", None, MODEL_PATH + "tiiuae/Falcon3-3B-Instruct"),
+]
+

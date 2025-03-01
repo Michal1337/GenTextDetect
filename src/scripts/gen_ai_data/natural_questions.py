@@ -7,7 +7,7 @@ from gen_utils import *
 
 np.random.seed(SEED)
 
-# DS_NAME = "google-research-datasets/natural_questions"  # Path to the raw data
+DS_NAME = "google-research-datasets/natural_questions"  # Path to the raw data
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv" # Path to save the raw data
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "natural_questions_human.csv" # Path to the human data
 AI_DATA_PATH = AI_DATA_BASE_PATH + "natural_questions/natural-questions_" # Path to save the generated data

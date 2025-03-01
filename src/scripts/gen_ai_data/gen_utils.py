@@ -86,9 +86,9 @@ def check_for_too_long_prompts(
     return df, prompts
 
 
-def generate_texts(prompts, llms, sampling_params, batch_size, base_path):
-    for llm, quant in llms:
-        model = LLM(model=llm, quantization=quant, trust_remote_code=True, seed=SEED)
+def generate_texts(prompts: List[Dict[str, str]], llms: List[Tuple[str, Optional[str], str]], sampling_params: List[SamplingParams], batch_size: int, base_path: str) -> None:
+    for llm, quant, path in llms:
+        model = LLM(model=path, quantization=quant, trust_remote_code=True, seed=SEED)
         csv_path = f"{base_path}{llm.split('/')[-1]}.csv"
 
         # init csv file
