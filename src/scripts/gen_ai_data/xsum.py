@@ -1,3 +1,6 @@
+import re
+import argparse
+import numpy as np
 import pandas as pd
 from datasets import load_dataset
 
@@ -27,7 +30,8 @@ BASE_PROMPT = [
 BATCH_SIZE = 8  # Number of prompts to generate at once
 
 
-if __name__ == "__main__":
+def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
+    """Load and preprocess the xsum dataset."""
     dataset = load_dataset(DS_NAME)
     df = pd.concat(
         [
@@ -36,12 +40,13 @@ if __name__ == "__main__":
             dataset["test"].to_pandas(),
         ]
     )
+
     df["summary_length"] = df["summary"].str.len()
     df["document_length"] = df[TEXT_COL].str.len()
     df = df[(df["summary_length"] >= 10) & (df["document_length"] >= 50)]
     df.drop_duplicates(subset=TEXT_COL, inplace=True)
-    df.reset_index(drop=True, inplace=True)
 
+    # Prepare prompts for generation
     prompts = [
         [
             BASE_PROMPT[0],  # The system message
@@ -53,7 +58,8 @@ if __name__ == "__main__":
         ]
         for summary in df[PROMPT_COLS].values
     ]
-    # remove too long prompts
+
+    # Remove too long prompts
     df, prompts = check_for_too_long_prompts(df, prompts, MAX_TOKENS_PROMPT)
 
     # Save human data
@@ -61,5 +67,37 @@ if __name__ == "__main__":
     df.rename(columns={TEXT_COL: "text"}, inplace=True)
     df.to_csv(HUMAN_DATA_PATH, index=False)
 
+    return df, prompts
+
+
+def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
+    """Main function to generate AI-written news articles based on the prompts."""
+
+    # Preprocess data
+    df, prompts = process_data()
+
     # Generate AI data
-    generate_texts(prompts, LLMS, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH)
+    generate_texts(
+        prompts, llm_name, llm_path, quant, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH
+    )
+
+
+if __name__ == "__main__":
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Generate AI-written news articles based on summaries."
+    )
+    parser.add_argument("llm_name", type=str, help="Name of the LLM model")
+    parser.add_argument("llm_path", type=str, help="Path to the LLM model")
+    parser.add_argument(
+        "quant",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Quantization setting (optional)",
+    )
+
+    args = parser.parse_args()
+
+    # Call the main function with the parsed arguments
+    main(args.llm_name, args.llm_path, args.quant)

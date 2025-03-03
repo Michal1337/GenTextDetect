@@ -86,32 +86,31 @@ def check_for_too_long_prompts(
     return df, prompts
 
 
-def generate_texts(prompts: List[Dict[str, str]], llms: List[Tuple[str, Optional[str], str]], sampling_params: List[SamplingParams], batch_size: int, base_path: str) -> None:
-    for llm, quant, path in llms:
-        model = LLM(model=path, quantization=quant, trust_remote_code=True, seed=SEED)
-        csv_path = f"{base_path}{llm.split('/')[-1]}.csv"
+def generate_texts(prompts: List[Dict[str, str]], llm_name, llm_path, quant, sampling_params: List[SamplingParams], batch_size: int, base_path: str) -> None:
+    model = LLM(model=llm_path, quantization=quant, trust_remote_code=True, seed=SEED)
+    csv_path = f"{base_path}{llm_name.split('/')[-1]}.csv"
 
-        # init csv file
-        with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            writer.writerow(["prompt", "text", "temperature", "top_p", "top_k"])
+    # init csv file
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["prompt", "text", "temperature", "top_p", "top_k"])
 
-        print(f"Generating texts for {llm}...")
-        for prompts_batch in tqdm(
-            batchify(prompts, batch_size), total=len(prompts) // batch_size
-        ):
-            params = random.choice(sampling_params)
-            responses = generate_responses(model, prompts_batch, params)
-            save_to_csv(
-                csv_path,
-                prompts_batch,
-                responses,
-                params.temperature,
-                params.top_p,
-                params.top_k,
-            )
-
-        df = pd.read_csv(csv_path)
-        print(
-            f"Expected samples: {len(prompts)}, Actual samples: {len(df)}, Match: {len(prompts) == len(df)}, Model: {llm}"
+    print(f"Generating texts for {llm_name}...")
+    for prompts_batch in tqdm(
+        batchify(prompts, batch_size), total=len(prompts) // batch_size
+    ):
+        params = random.choice(sampling_params)
+        responses = generate_responses(model, prompts_batch, params)
+        save_to_csv(
+            csv_path,
+            prompts_batch,
+            responses,
+            params.temperature,
+            params.top_p,
+            params.top_k,
         )
+
+    df = pd.read_csv(csv_path)
+    print(
+        f"Expected samples: {len(prompts)}, Actual samples: {len(df)}, Match: {len(prompts) == len(df)}, Model: {llm_name}"
+    )

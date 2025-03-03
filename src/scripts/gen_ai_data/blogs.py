@@ -1,36 +1,29 @@
+import argparse
 import pandas as pd
-
+from typing import Optional, Tuple, Dict
 from gen_params import *
 from gen_utils import *
 
-RAW_DATA_PATH = RAW_DATA_BASE_PATH + "blogs.csv"  # Path to the raw data
-HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "blogs_human.csv"  # Path to the human data
-AI_DATA_PATH = AI_DATA_BASE_PATH + "blogs/blogs_"  # Path to save the generated data
+RAW_DATA_PATH = RAW_DATA_BASE_PATH + "blogs.csv"
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "blogs_human.csv"
+AI_DATA_PATH = AI_DATA_BASE_PATH + "blogs/blogs_"
 
-PROMPT_COLS = ["text"]  # Columns with the prompt data
-TEXT_COL = "text"  # Column with the text data
-TO_DROP = [
-    "id",
-    "gender",
-    "age",
-    "topic",
-    "sign",
-    "date",
-    "text_length",
-]  # Columns to drop from the human data
+PROMPT_COLS = ["text"]
+TEXT_COL = "text"
+TO_DROP = ["id", "gender", "age", "topic", "sign", "date", "text_length"]
 BASE_PROMPT = [
-    {
-        "role": "system",
-        "content": "You are a helpful assistant for rewriting blogs. Based on the provided blog, generate a similar one. Ensure the rewritten blog maintains the same meaning, structure, and similar length. MAKE SURE TO REPLY ONLY WITH THE SIMILAR BLOG.",
-    },
+    {"role": "system", "content": "You are a helpful assistant for rewriting blogs..."},
     {"role": "user", "content": "Blog:\n{blog}"},
     {"role": "assistant", "content": "Similar blog:\n"},
 ]
 
-BATCH_SIZE = 8  # Number of prompts to generate at once
+BATCH_SIZE = 8
 
 
-if __name__ == "__main__":
+def preprocess_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
+    """Preprocess the blogs dataset and prepare the prompts."""
+
+    # Load and preprocess data
     df = pd.read_csv(RAW_DATA_PATH)
     df[TEXT_COL] = df[TEXT_COL].str.strip()
     df["text_length"] = df[TEXT_COL].str.len()
@@ -38,6 +31,7 @@ if __name__ == "__main__":
     df.drop_duplicates(subset=TEXT_COL, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # Prepare prompts for generation
     prompts = [
         [
             BASE_PROMPT[0],  # The system message
@@ -49,7 +43,8 @@ if __name__ == "__main__":
         ]
         for blog in df[PROMPT_COLS].values
     ]
-    # remove too long prompts
+
+    # Remove too long prompts
     df, prompts = check_for_too_long_prompts(df, prompts, MAX_TOKENS_PROMPT)
 
     # Save human data
@@ -57,5 +52,34 @@ if __name__ == "__main__":
     df.rename(columns={TEXT_COL: "text"}, inplace=True)
     df.to_csv(HUMAN_DATA_PATH, index=False)
 
+    return df, prompts
+
+
+def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
+    """Main function to generate AI-rewritten blogs."""
+
+    # Preprocess data
+    df, prompts = preprocess_data()
+
     # Generate AI data
-    generate_texts(prompts, LLMS, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH)
+    generate_texts(
+        prompts, llm_name, llm_path, quant, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH
+    )
+
+
+if __name__ == "__main__":
+    # Command-line interface
+    parser = argparse.ArgumentParser(description="Generate AI-rewritten blogs.")
+    parser.add_argument("llm_name", type=str, help="Name of the LLM model")
+    parser.add_argument("llm_path", type=str, help="Path to the LLM model")
+    parser.add_argument(
+        "quant",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Quantization setting (can be None)",
+    )
+
+    args = parser.parse_args()
+
+    main(args.llm_name, args.llm_path, args.quant)

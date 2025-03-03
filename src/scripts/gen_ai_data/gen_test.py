@@ -10,7 +10,6 @@ PROMPT = [
     {"role": "user", "content": "What is the capital of Poland?"},
 ]
 
-
 if __name__ == "__main__":
     for llm, quant, path in LLMS:
         print(f"Testing {llm}...")

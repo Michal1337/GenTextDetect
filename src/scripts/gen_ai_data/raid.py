@@ -1,15 +1,16 @@
+import argparse
 import pandas as pd
 from datasets import load_dataset
 
 from gen_params import *
 from gen_utils import *
 
-DS_NAME = "liamdugan/raid"  # Path to the raw data
-HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "raid_human.csv"  # Path to the human data
-AI_DATA_PATH = AI_DATA_BASE_PATH + "raid/raid_"  # Path to save the generated data
+DS_NAME = "liamdugan/raid"
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "raid_human.csv"
+AI_DATA_PATH = AI_DATA_BASE_PATH + "raid/raid_"
 
-PROMPT_COLS = ["domain", "title"]  # Columns with the prompt data
-TEXT_COL = "generation"  # Column with the text data
+PROMPT_COLS = ["domain", "title"]
+TEXT_COL = "generation"
 TO_DROP = [
     "id",
     "adv_source_id",
@@ -23,7 +24,8 @@ TO_DROP = [
     "prompt",
     "generation_length",
     "title_length",
-]  # Columns to drop from the human data
+]
+
 BASE_PROMPT = [
     {
         "role": "system",
@@ -32,31 +34,39 @@ BASE_PROMPT = [
     {"role": "user", "content": "Domain:\n{domain}\nTitle:\n{title}"},
     {"role": "assistant", "content": "Generated text:\n"},
 ]
-BATCH_SIZE = 8  # Number of prompts to generate at once
+
+BATCH_SIZE = 8
 
 
-if __name__ == "__main__":
+def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
+    """Load and preprocess the dataset."""
     dataset = load_dataset(DS_NAME, "raid")["train"]
     dataset = dataset.filter(lambda x: x["model"] == "human")
     df = dataset.to_pandas()
+
+    # Compute title and generation lengths
     df["title_length"] = df["title"].str.len()
     df["generation_length"] = df[TEXT_COL].str.len()
+
+    # Filter out invalid rows
     df = df[(df["title_length"] >= 10) & (df["generation_length"] >= 50)]
     df.drop_duplicates(subset=[TEXT_COL], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # Prepare prompts
     prompts = [
         [
             BASE_PROMPT[0],  # The system message
             {
                 "role": "user",
                 "content": BASE_PROMPT[1]["content"].format(domain=domain, title=title),
-            },  # Formatted user message
+            },
             BASE_PROMPT[2],  # Start of the assistant message
         ]
         for domain, title in df[PROMPT_COLS].values
     ]
-    # remove too long prompts
+
+    # Remove too long prompts
     df, prompts = check_for_too_long_prompts(df, prompts, MAX_TOKENS_PROMPT)
 
     # Save human data
@@ -64,5 +74,35 @@ if __name__ == "__main__":
     df.rename(columns={TEXT_COL: "text"}, inplace=True)
     df.to_csv(HUMAN_DATA_PATH, index=False)
 
+    return df, prompts
+
+
+def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
+    """Main function to generate AI-written text."""
+
+    # Preprocess data
+    df, prompts = process_data()
+
     # Generate AI data
-    generate_texts(prompts, LLMS, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH)
+    generate_texts(
+        prompts, llm_name, llm_path, quant, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Generate AI-written text based on domain and title."
+    )
+    parser.add_argument("llm_name", type=str, help="Name of the LLM model")
+    parser.add_argument("llm_path", type=str, help="Path to the LLM model")
+    parser.add_argument(
+        "quant",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Quantization setting (optional)",
+    )
+
+    args = parser.parse_args()
+
+    main(args.llm_name, args.llm_path, args.quant)

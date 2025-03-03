@@ -1,4 +1,5 @@
 import re
+import argparse
 import pandas as pd
 
 from gen_params import *
@@ -33,18 +34,26 @@ def standard_chars(s: str) -> bool:
     return bool(re.match(r"^[a-zA-Z0-9\s.,!?\'\"-]+$", s))
 
 
-if __name__ == "__main__":
+def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
+    """Load and preprocess the tweets dataset."""
     df = pd.read_csv(
         RAW_DATA_PATH,
         encoding="latin-1",
         names=["target", "ids", "date", "flag", "user", "text"],
     )
+
+    # Filter tweets with only standard characters
     df = df[df[TEXT_COL].apply(standard_chars)]
+
+    # Filter out tweets that are too short
     df["text_length"] = df[TEXT_COL].str.len()
     df = df[df["text_length"] >= 15]
+
+    # Remove duplicates and reset index
     df.drop_duplicates(subset=TEXT_COL, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # Prepare prompts for generation
     prompts = [
         [
             BASE_PROMPT[0],  # The system message
@@ -56,7 +65,8 @@ if __name__ == "__main__":
         ]
         for tweet in df[PROMPT_COLS].values
     ]
-    # remove too long prompts
+
+    # Remove too long prompts
     df, prompts = check_for_too_long_prompts(df, prompts, MAX_TOKENS_PROMPT)
 
     # Save human data
@@ -64,5 +74,33 @@ if __name__ == "__main__":
     df.rename(columns={TEXT_COL: "text"}, inplace=True)
     df.to_csv(HUMAN_DATA_PATH, index=False)
 
+    return df, prompts
+
+
+def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
+    """Main function to generate AI-written tweets."""
+
+    # Preprocess data
+    df, prompts = process_data()
+
     # Generate AI data
-    generate_texts(prompts, LLMS, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH)
+    generate_texts(
+        prompts, llm_name, llm_path, quant, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate AI-written Tweets.")
+    parser.add_argument("llm_name", type=str, help="Name of the LLM model")
+    parser.add_argument("llm_path", type=str, help="Path to the LLM model")
+    parser.add_argument(
+        "quant",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Quantization setting (optional)",
+    )
+
+    args = parser.parse_args()
+
+    main(args.llm_name, args.llm_path, args.quant)

@@ -1,34 +1,39 @@
+import argparse
+import csv
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from datasets import load_dataset
-
 from gen_params import *
 from gen_utils import *
 
 np.random.seed(SEED)
 
-DS_NAME = "google-research-datasets/natural_questions"  # Path to the raw data
-RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv" # Path to save the raw data
-HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "natural_questions_human.csv" # Path to the human data
-AI_DATA_PATH = AI_DATA_BASE_PATH + "natural_questions/natural-questions_" # Path to save the generated data
+DS_NAME = "google-research-datasets/natural_questions"
+RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv"
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "natural_questions_human.csv"
+AI_DATA_PATH = AI_DATA_BASE_PATH + "natural_questions/natural-questions_"
 
-PROMPT_COLS = ["document", "question"]  # Columns with the prompt data
-TEXT_COL = "answer"  # Column with the text data
-TO_DROP = ["document", "question"]  # Columns to drop from the human data
+PROMPT_COLS = ["document", "question"]
+TEXT_COL = "answer"
+TO_DROP = ["document", "question"]
+
 BASE_PROMPT = [
     {
         "role": "system",
-        "content": "You are a helpful assistant for answering questions based on the provided context. The context will be a copy of a Wikipedia article. Answer the question based only on the given context. MAKE SURE TO REPLY ONLY WITH THE ANSWER.",
+        "content": "You are a helpful assistant for answering questions based on the provided context. "
+        "The context will be a copy of a Wikipedia article. Answer the question based only on the given context. "
+        "MAKE SURE TO REPLY ONLY WITH THE ANSWER.",
     },
     {"role": "user", "content": "Context:\n{context}\nQuestion: {question}"},
     {"role": "assistant", "content": "Answer:\n"},
 ]
 
-BATCH_SIZE = 128  # Number of prompts to generate at once
+BATCH_SIZE = 128
 
 
 def nq2csv(dataset, save_path, batch_size):
-    # init csv
+    """Convert the dataset to CSV format with batched writing."""
     with open(save_path, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(["document", "question", "answer"])
@@ -36,7 +41,7 @@ def nq2csv(dataset, save_path, batch_size):
     for split in ["train", "validation"]:
         documents, questions, answers = [], [], []
 
-        for item in tqdm(dataset[split]):
+        for item in tqdm(dataset[split], desc=f"Processing {split} split"):
             idx = np.random.randint(len(item["long_answer_candidates"]["start_token"]))
             start = item["long_answer_candidates"]["start_token"][idx]
             end = item["long_answer_candidates"]["end_token"][idx]
@@ -56,43 +61,46 @@ def nq2csv(dataset, save_path, batch_size):
             documents.append(document)
             questions.append(question)
             answers.append(ans)
+
             if len(documents) == batch_size:
                 with open(save_path, mode="a", newline="", encoding="utf-8") as file:
                     writer = csv.writer(file)
-                    for document, question, answer in zip(
-                        documents, questions, answers
-                    ):
-                        writer.writerow([document, question, answer])
+                    writer.writerows(zip(documents, questions, answers))
 
                 documents, questions, answers = [], [], []
 
-        # save last, not full batch
+        # Save the remaining batch
         with open(save_path, mode="a", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
-            for document, question, answer in zip(documents, questions, answers):
-                writer.writerow([document, question, answer])
+            writer.writerows(zip(documents, questions, answers))
 
 
-if __name__ == "__main__":
+def preprocess_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
+    """Preprocess the Natural Questions dataset and create prompts."""
+
+    # Load dataset and convert to CSV
     dataset = load_dataset(DS_NAME)
     nq2csv(dataset, RAW_DATA_PATH, BATCH_SIZE)
 
+    # Read the processed CSV
     df = pd.read_csv(RAW_DATA_PATH)
 
+    # Create prompts
     prompts = [
         [
-            BASE_PROMPT[0],  # The system message
+            BASE_PROMPT[0],
             {
                 "role": "user",
                 "content": BASE_PROMPT[1]["content"].format(
                     context=context, question=question
                 ),
-            },  # Formatted user message
-            BASE_PROMPT[2],  # Start of the assistant message
+            },
+            BASE_PROMPT[2],
         ]
         for context, question in df[PROMPT_COLS].values
     ]
-    # remove too long prompts
+
+    # Remove too long prompts
     df, prompts = check_for_too_long_prompts(df, prompts, MAX_TOKENS_PROMPT)
 
     # Save human data
@@ -100,5 +108,36 @@ if __name__ == "__main__":
     df.rename(columns={TEXT_COL: "text"}, inplace=True)
     df.to_csv(HUMAN_DATA_PATH, index=False)
 
-    # Generate AI data
-    generate_texts(prompts, LLMS, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH)
+    return df, prompts
+
+
+def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
+    """Main function to preprocess data and generate AI responses."""
+
+    # Preprocess data
+    df, prompts = preprocess_data()
+
+    # Generate AI responses
+    generate_texts(
+        prompts, llm_name, llm_path, quant, SAMPLING_PARAMS, BATCH_SIZE, AI_DATA_PATH
+    )
+
+
+if __name__ == "__main__":
+    # Command-line interface
+    parser = argparse.ArgumentParser(
+        description="Generate AI responses for Natural Questions dataset."
+    )
+    parser.add_argument("llm_name", type=str, help="Name of the LLM model")
+    parser.add_argument("llm_path", type=str, help="Path to the LLM model")
+    parser.add_argument(
+        "quant",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Quantization setting (can be None)",
+    )
+
+    args = parser.parse_args()
+
+    main(args.llm_name, args.llm_path, args.quant)
