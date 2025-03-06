@@ -3,7 +3,7 @@ from huggingface_hub import snapshot_download
 
 
 if __name__ == "__main__":
-    for model, quant, path in LLMS:
+    for model, path, quant in LLMS:
         print(f"Downloading {model}...")
         snapshot_download(
             repo_id=model,
@@ -12,3 +12,4 @@ if __name__ == "__main__":
             ignore_patterns="*.pth",
         )
         print(f"Downloaded {model}!")
+

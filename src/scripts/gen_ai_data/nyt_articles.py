@@ -36,7 +36,7 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Abstract:\n"},
 ]
 
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 
 
 def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
