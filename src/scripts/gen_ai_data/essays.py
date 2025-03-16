@@ -26,7 +26,7 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Similar essay: \n"},
 ]
 
-BATCH_SIZE = 8  # Number of prompts to generate at once
+BATCH_SIZE = 32  # Number of prompts to generate at once
 
 
 def preprocess_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:

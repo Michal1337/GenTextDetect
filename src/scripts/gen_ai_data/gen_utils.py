@@ -87,8 +87,12 @@ def check_for_too_long_prompts(
 
 
 def generate_texts(prompts: List[Dict[str, str]], llm_name, llm_path, quant, sampling_params: List[SamplingParams], batch_size: int, base_path: str) -> None:
-    model = LLM(model=llm_path, quantization=quant, trust_remote_code=True, seed=SEED)
+    if llm_name == "microsoft/phi-4":
+        model = LLM(model=llm_path, quantization=quant, max_model_len=MAX_MODEL_LEN // 2, trust_remote_code=True, seed=SEED, tensor_parallel_size=2) # enable_chunked_prefill=False for phi3-small
+    else:
+        model = LLM(model=llm_path, quantization=quant, max_model_len=MAX_MODEL_LEN // 2, trust_remote_code=True, seed=SEED, tensor_parallel_size=2)
     csv_path = f"{base_path}{llm_name.split('/')[-1]}.csv"
+
 
     # init csv file
     with open(csv_path, mode="w", newline="", encoding="utf-8") as file:

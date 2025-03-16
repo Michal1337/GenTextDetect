@@ -1,8 +1,11 @@
 import argparse
+import random
 import pandas as pd
 from typing import Optional, Tuple, Dict
 from gen_params import *
 from gen_utils import *
+
+random.seed(SEED)
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "blogs.csv"
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "blogs_human.csv"
@@ -17,7 +20,8 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Similar blog:\n"},
 ]
 
-BATCH_SIZE = 8
+PERCENT_SAMPLE = 0.05
+BATCH_SIZE = 64
 
 
 def preprocess_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
@@ -60,6 +64,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = preprocess_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI data
     generate_texts(

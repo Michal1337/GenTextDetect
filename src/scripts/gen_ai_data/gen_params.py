@@ -7,8 +7,9 @@ HUMAN_DATA_BASE_PATH: str = "../../../data/data_human/"
 AI_DATA_BASE_PATH: str = "../../../data/data_ai/"
 
 SEED: int = 1337
-MAX_TOKENS_PROMPT: int = 32_768
-MAX_TOKENS_GENERATE: int = 50_000
+MAX_TOKENS_PROMPT: int = 16_384
+MAX_TOKENS_GENERATE: int = 16_384
+MAX_MODEL_LEN: int = MAX_TOKENS_PROMPT + MAX_TOKENS_GENERATE
 
 
 SAMPLING_PARAMS: List[SamplingParams] = [
@@ -36,14 +37,14 @@ MODEL_PATH: str = "/mnt/evafs/groups/re-com/mgromadzki/llms/"
 LLMS: List[Tuple[str, str, Optional[str]]] = [
     # Meta
     ("meta-llama/Llama-3.1-8B-Instruct", MODEL_PATH + "meta-llama/Llama-3.1-8B-Instruct", None),
-    ("unsloth/Meta-Llama-3.1-70B-bnb-4bit", MODEL_PATH + "unsloth/Meta-Llama-3.1-70B-bnb-4bit", "bitsandbytes"),
+    ("hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", MODEL_PATH + "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", "awq"),
     ("meta-llama/Llama-3.2-3B-Instruct", MODEL_PATH + "meta-llama/Llama-3.2-3B-Instruct", None),
-    ("unsloth/Llama-3.3-70B-Instruct-bnb-4bit", MODEL_PATH + "unsloth/Llama-3.3-70B-Instruct-bnb-4bit", "bitsandbytes"),
+    ("ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4", MODEL_PATH + "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4", "awq"),
     
     # Microsoft
     ("microsoft/Phi-3-mini-128k-instruct", MODEL_PATH + "microsoft/Phi-3-mini-128k-instruct", None),
     ("microsoft/Phi-3-small-128k-instruct", MODEL_PATH + "microsoft/Phi-3-small-128k-instruct", None),
-    ("microsoft/Phi-3-medium-128k-instruct", MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct", None),
+    # ("microsoft/Phi-3-medium-128k-instruct", MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct", None),
     ("microsoft/Phi-3.5-mini-instruct", MODEL_PATH + "microsoft/Phi-3.5-mini-instruct", None),
     ("microsoft/Phi-4-mini-instruct", MODEL_PATH + "microsoft/Phi-4-mini-instruct", None),
     ("microsoft/phi-4", MODEL_PATH + "microsoft/phi-4", None),
