@@ -47,7 +47,7 @@ def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
 
     # Filter out tweets that are too short
     df["text_length"] = df[TEXT_COL].str.len()
-    df = df[df["text_length"] >= 15]
+    df = df[df["text_length"] >= 50]
 
     # Remove duplicates and reset index
     df.drop_duplicates(subset=TEXT_COL, inplace=True)
