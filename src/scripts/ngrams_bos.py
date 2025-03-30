@@ -4,7 +4,7 @@ from collections import Counter
 from typing import Dict, List
 
 import pandas as pd
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.util import ngrams
 from tqdm import tqdm
 
@@ -18,19 +18,23 @@ from params import (
 from utils import get_csv_paths
 
 
-def calc_ngrams(texts: List[str], min_n: int, max_n: int) -> Dict[int, Counter]:
+def calc_ngrams_bos(texts: List[str], min_n: int, max_n: int) -> Dict[int, Counter]:
     ngrams_frequencies = {}
 
     for text in tqdm(texts):
-        tokens = word_tokenize(text.lower())
+        sentences = sent_tokenize(text.lower())
 
-        words_only = [token for token in tokens if token.isalpha()]
+        for sentence in sentences:
+            tokens = word_tokenize(sentence)
+            words_only = [token for token in tokens if token.isalpha()]
 
-        for n in range(min_n, max_n + 1):
-            if n not in ngrams_frequencies:
-                ngrams_frequencies[n] = Counter()
-            ngrams_generated = ngrams(words_only, n)
-            ngrams_frequencies[n].update(ngrams_generated)
+            for n in range(min_n, max_n + 1):
+                if n not in ngrams_frequencies:
+                    ngrams_frequencies[n] = Counter()
+
+                if len(words_only) >= n:
+                    ngram = " ".join(words_only[:n])  # Convert tuple to string
+                    ngrams_frequencies[n][ngram] += 1
 
     return ngrams_frequencies
 
@@ -56,18 +60,18 @@ if __name__ == "__main__":
             ngrams_path = os.path.join(
                 NGRAMS_PATH,
                 path.split("/")[-2],
-                path.split("/")[-1].replace(".csv", "_ngrams.csv"),
+                path.split("/")[-1].replace(".csv", "_ngrams_bos.csv"),
             )
         else:
             ngrams_path = os.path.join(
                 NGRAMS_PATH,
                 path.split("/")[-3],
                 path.split("/")[-2],
-                path.split("/")[-1].replace(".csv", "_ngrams.csv"),
+                path.split("/")[-1].replace(".csv", "_ngrams_bos.csv"),
             )
 
         df = pd.read_csv(path)
         texts = df["text"].values
-        ngrams_frequencies = calc_ngrams(texts, MIN_NGRAM_LEVEL, MAX_NGRAM_LEVEL)
+        ngrams_frequencies = calc_ngrams_bos(texts, MIN_NGRAM_LEVEL, MAX_NGRAM_LEVEL)
 
         save_ngrams_to_csv(ngrams_frequencies, ngrams_path)

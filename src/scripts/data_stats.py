@@ -24,10 +24,11 @@ def calc_stats(
         sentences = sent_tokenize(text)
         for sentence in sentences:
             words = word_tokenize(sentence)
+            words_only = [word for word in words if word.isalpha()]
             text_chars += sum([len(word) for word in words])
 
         total_sentences += len(sentences)
-        total_words += len(words)
+        total_words += len(words_only)
         total_chars += text_chars
         total_tokens += len(text_tokens)
 
