@@ -19,12 +19,3 @@ FEATURES_STATS_PATH: str = "../../data/features/features_stats_master.csv"
 NGRAMS_PATH: str = "../../data/ngrams/"
 MIN_NGRAM_LEVEL: int = 1
 MAX_NGRAM_LEVEL: int = 4
-
-DATASET_IDX_PATH = "../../data/datasets/idx/"
-
-MASTER_DATASET_SIZES = {
-    "mini": 100_000,
-    "small": 1_000_000,
-    "medium": 10_000_000,
-    "large": 100_000_000,
-}

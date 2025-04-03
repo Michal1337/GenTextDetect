@@ -1,15 +1,16 @@
+import os
 import pandas as pd
 
-from params import STATS_PATH, MASTER_STATS_PATH, DATASET_IDX_PATH, MASTER_DATASET_SIZES
-from utils import get_csv_paths, create_dataset_idx
+from ex_params import STATS_PATH, MASTER_STATS_PATH, DATASETS_PATH, DATASETS
+from ex_utils import get_csv_paths, create_dataset_idx
 
 BATCH_SIZE = 256
 
 if __name__ == "__main__":
     paths = get_csv_paths(STATS_PATH, recursive=True)
-    col_c0 = "human"
 
-    for name, max_tokens in MASTER_DATASET_SIZES.items():
+    for name, config in DATASETS.items():
+        max_tokens, cols_c0 = config
 
         stats = dict(
             {
@@ -25,5 +26,6 @@ if __name__ == "__main__":
             df_main["num_sentences"] / df_main["num_samples"]
         )
 
-        save_path = DATASET_IDX_PATH + f"main_dataset_{name}_idx.csv"
-        create_dataset_idx(max_tokens, BATCH_SIZE, stats, df_main, col_c0, save_path)
+        os.mkdir(f"{DATASETS_PATH}/{name}/", exist_ok=True)
+        save_path = f"{DATASETS_PATH}/{name}/dataset_idx.csv" 
+        create_dataset_idx(max_tokens, BATCH_SIZE, stats, df_main, cols_c0, save_path)
