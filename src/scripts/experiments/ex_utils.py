@@ -1,10 +1,32 @@
 import csv
 import os
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from transformers import AutoTokenizer
+from torch.utils.data import Dataset
+
+class TextDataset(Dataset):
+    def __init__(self, texts: List[str], labels: List[int], tokenizer: AutoTokenizer) -> None:
+        """
+        texts: list of texts.
+        labels: list of labels for all samples.
+        """
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+
+    def __len__(self) -> int:
+        return len(self.texts)
+    
+
+    def __getitem__(self, idx: idx) -> Dict[str, Union[str, int]]:
+        text = self.texts[idx]
+        label = self.labels[idx]
+
+        return {"text": text, "label": label}
 
 
 def get_csv_paths(folder_path: str, recursive: bool = False) -> List[str]:
@@ -133,3 +155,20 @@ def idx2csv(df: pd.Dataframe, cols_c0: List[str], save_path: str) -> None:
                 for i in range(len(df_subset)):
                     text = df_subset.iloc[i]["text"]
                     writer.writerow([text, label])
+
+
+def collate_fn(batch: List[Dict[str, torch.tensor]], tokenizer: AutoTokenizer) -> Dict[str, torch.tensor]:
+    texts = [item["text"] for item in batch]
+    labels = [item["label"] for item in batch]
+    encodings = tokenizer(
+        texts,
+        truncation=True,
+        padding="longest",
+        return_tensors="pt"
+    )
+
+    labels_padded = [torch.where(t == 0, torch.tensor(-100), torch.tensor(label)) for t, label in zip(encodings["attention_mask"], labels)]
+    labels_padded = torch.cat(labels_padded)
+    encodings["labels"] = labels_padded
+
+    return encodings
