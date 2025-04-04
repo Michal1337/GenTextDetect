@@ -1,8 +1,11 @@
 import argparse
+import random
 import pandas as pd
 
 from gen_params import *
 from gen_utils import *
+
+random.seed(SEED)
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "reddit.csv"  # Path to the raw data
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "reddit_human.csv"  # Path to the human data
@@ -25,7 +28,8 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Similar comment:\n"},
 ]
 
-BATCH_SIZE = 8  # Number of prompts to generate at once
+PERCENT_SAMPLE = 0.2
+BATCH_SIZE = 256  # Number of prompts to generate at once
 
 
 def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
@@ -74,6 +78,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = process_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI data
     generate_texts(
