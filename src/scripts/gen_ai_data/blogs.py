@@ -15,7 +15,7 @@ PROMPT_COLS = ["text"]
 TEXT_COL = "text"
 TO_DROP = ["id", "gender", "age", "topic", "sign", "date", "text_length"]
 BASE_PROMPT = [
-    {"role": "system", "content": "You are a helpful assistant for rewriting blogs..."},
+    {"role": "system", "content": "You are a helpful asistant for rewritting blogs. Based on provided blog generate a similar one. MAKE SURE TO REPLAY ONLY WITH THE SIMILAR BLOG."},
     {"role": "user", "content": "Blog:\n{blog}"},
     {"role": "assistant", "content": "Similar blog:\n"},
 ]

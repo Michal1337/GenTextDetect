@@ -1,7 +1,7 @@
 import subprocess
 from gen_params import LLMS
 
-SCRIPT_PATH = "blogs.py"
+SCRIPT_PATH = "nyt_comments.py"
 
 def execute_script(script_path: str, llm_name: str, llm_path: str, quant: str) -> None:
     """Execute the script to generate AI-rewritten blogs."""

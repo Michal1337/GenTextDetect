@@ -4,9 +4,8 @@ from gen_params import *
 from gen_utils import *
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-comments-2020.csv"
-ARTICLES_PATH = (
-    "../../../data/data_raw/nyt-articles-2020.csv"  # Path to article abstracts
-)
+ARTICLES_PATH = "../../../data/data_raw/nyt-articles-2020.csv"  # Path to article abstracts
+
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt_comments_human.csv"
 AI_DATA_PATH = AI_DATA_BASE_PATH + "nyt_comments/nyt-comments_"
 
@@ -31,7 +30,8 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Similar comment:\n"},
 ]
 
-BATCH_SIZE = 8
+PERCENT_SAMPLE = 0.05
+BATCH_SIZE = 512
 
 
 def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
@@ -81,6 +81,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = process_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI data
     generate_texts(
