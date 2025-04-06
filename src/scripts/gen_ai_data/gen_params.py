@@ -44,7 +44,7 @@ LLMS: List[Tuple[str, str, Optional[str]]] = [
     # Microsoft
     ("microsoft/Phi-3-mini-128k-instruct", MODEL_PATH + "microsoft/Phi-3-mini-128k-instruct", None),
     ("microsoft/Phi-3-small-128k-instruct", MODEL_PATH + "microsoft/Phi-3-small-128k-instruct", None),
-    # ("microsoft/Phi-3-medium-128k-instruct", MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct", None),
+    ("microsoft/Phi-3-medium-128k-instruct", MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct", None),
     ("microsoft/Phi-3.5-mini-instruct", MODEL_PATH + "microsoft/Phi-3.5-mini-instruct", None),
     ("microsoft/Phi-4-mini-instruct", MODEL_PATH + "microsoft/Phi-4-mini-instruct", None),
     ("microsoft/phi-4", MODEL_PATH + "microsoft/phi-4", None),

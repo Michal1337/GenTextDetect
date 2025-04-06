@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ex_params import DATASETS, DATASETS_PATH, MASTER_STATS_PATH, STATS_PATH
+from ex_params import DATASETS, DATASETS_PATH, MASTER_STATS_PATH, STATS_PATH, DATA_HUMAN_PATH, DATA_AI_PATH
 from ex_utils import get_csv_paths
 
 BATCH_SIZE = 256
@@ -22,30 +22,31 @@ def create_dataset_idx(
 ):
 
     for ds in df_main["data"].unique():
+        df_main.loc[df_main["data"].values == ds, "prob"] = (
+            df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].values
+            / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].sum()
+        )
         mask_c0 = (df_main["data"].values == ds) & (df_main["model"].isin(cols_c0))
         mask_c1 = (df_main["data"].values == ds) & (~df_main["model"].isin(cols_c0))
 
-        df_main.loc[mask_c1, "prob"] = (
-            1
-            / df_main.loc[mask_c1, "avg_sent_per_sample"]
-            / (1 / df_main.loc[mask_c1, "avg_sent_per_sample"]).sum()
-        )
+        class0 = df_main[mask_c0]
+        class1 = df_main[mask_c1]
 
-        avg_c0 = df_main.loc[mask_c0, "avg_sent_per_sample"].values[0]
-        avg_c1 = (
-            df_main.loc[mask_c1, "avg_sent_per_sample"] * df_main.loc[mask_c1, "prob"]
-        ).sum()
+        s1 = (class0["avg_token_per_sample"] * class0["prob"]).sum()
+        s2 = (class1["avg_token_per_sample"] * class1["prob"]).sum()
+        p1 = class0["prob"].sum()
+        p2 = class1["prob"].sum()
 
-        c = 1 / (1 + avg_c1 / avg_c0)
-        p = 1 - c
+        c1 = 1 / (s2 / s1 * p1 + p2)
+        c0 = c1 * s2 / s1
 
-        df_main.loc[mask_c1, "prob"] *= c
-        df_main.loc[mask_c0, "prob"] = p
+        df_main.loc[mask_c0, "prob"] *= c0
+        df_main.loc[mask_c1, "prob"] *= c1
 
     weights = [
         1
         / (
-            df_main.loc[df_main["data"] == ds, "avg_sent_per_sample"]
+            df_main.loc[df_main["data"] == ds, "avg_token_per_sample"]
             * df_main.loc[df_main["data"] == ds, "prob"]
         ).sum()
         for ds in df_main["data"].unique()
@@ -55,7 +56,7 @@ def create_dataset_idx(
     total_tokens = 0
     total_sentences = 0
     total_samples = 0
-
+    cnt = 0
     while total_tokens < max_tokens:
         data = np.random.choice(df_main["data"].unique(), p=probs)
         tmp = df_main[(df_main["data"] == data)]
@@ -90,7 +91,7 @@ def create_dataset_idx(
     )
 
 
-def idx2csv(df: pd.Dataframe, cols_c0: List[str], save_path: str) -> None:
+def idx2csv(df: pd.DataFrame, cols_c0: List[str], save_path: str) -> None:
     # init csv
     with open(save_path, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
@@ -100,9 +101,9 @@ def idx2csv(df: pd.Dataframe, cols_c0: List[str], save_path: str) -> None:
     for data in tqdm(df["data"].unique()):
         for model in df["model"].unique():
             if model == "human":
-                path = f"../data/data_human/{data}_human.csv"
+                path = DATA_HUMAN_PATH + f"{data}_human.csv"
             else:
-                path = f"../data/data_ai/{data.replace('-', '_')}/{data}_{model}.csv"
+                path = DATA_AI_PATH + f"{data.replace('-', '_')}/{data}_{model}.csv"
 
             subset = df[(df["data"] == data) & (df["model"] == model)]
             df_data = pd.read_csv(path)
@@ -124,7 +125,7 @@ if __name__ == "__main__":
     paths = get_csv_paths(STATS_PATH, recursive=True)
 
     for name, config in DATASETS.items():
-        max_tokens, cols_c0 = config
+        max_tokens, cols_c0 = config["num_tokens"], config["cols_c0"]
 
         stats = dict(
             {
@@ -136,16 +137,24 @@ if __name__ == "__main__":
         )
 
         df_main = pd.read_csv(MASTER_STATS_PATH)
-        df_main["avg_sent_per_sample"] = (
-            df_main["num_sentences"] / df_main["num_samples"]
+        df_main["avg_token_per_sample"] = (
+            df_main["num_tokens"] / df_main["num_samples"]
         )
 
-        os.mkdir(f"{DATASETS_PATH}/{name}/", exist_ok=True)
-        save_path_idx = f"{DATASETS_PATH}/{name}/idx.csv"
+        os.mkdir(f"{DATASETS_PATH}{name}/")
+        save_path_train_idx = f"{DATASETS_PATH}/{name}/train_idx.csv"
+        save_path_val_idx = f"{DATASETS_PATH}/{name}/val_idx.csv"
         create_dataset_idx(
-            max_tokens, BATCH_SIZE, stats, df_main, cols_c0, save_path_idx
+            max_tokens, BATCH_SIZE, stats, df_main, cols_c0, save_path_train_idx
+        )
+        create_dataset_idx(
+            int(max_tokens * 0.3), BATCH_SIZE, stats, df_main, cols_c0, save_path_val_idx
         )
 
-        df_idx = pd.read_csv(save_path_idx)
-        save_path_ds = f"{DATASETS_PATH}/{name}/dataset.csv"
+        df_idx = pd.read_csv(save_path_train_idx)
+        save_path_ds = f"{DATASETS_PATH}/{name}/train.csv"
+        idx2csv(df_idx, cols_c0, save_path_ds)
+
+        df_idx = pd.read_csv(save_path_val_idx)
+        save_path_ds = f"{DATASETS_PATH}/{name}/val.csv"
         idx2csv(df_idx, cols_c0, save_path_ds)

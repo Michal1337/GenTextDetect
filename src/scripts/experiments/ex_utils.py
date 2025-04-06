@@ -8,15 +8,13 @@ from transformers import AutoTokenizer
 
 class TextDataset(Dataset):
     def __init__(
-        self, texts: List[str], labels: List[int], tokenizer: AutoTokenizer
-    ) -> None:
+        self, texts: List[str], labels: List[int]) -> None:
         """
         texts: list of texts.
         labels: list of labels for all samples.
         """
         self.texts = texts
         self.labels = labels
-        self.tokenizer = tokenizer
 
     def __len__(self) -> int:
         return len(self.texts)

@@ -1,12 +1,23 @@
 import torch
 import torch.nn as nn
+from transformers import AutoModel
 
 
 class FineTuneClassifier(nn.Module):
-    def __init__(self, base_model: nn.Module, num_labels: int) -> None:
+    def __init__(self, base_model_path: str, num_labels: int) -> None:
         super(FineTuneClassifier, self).__init__()
-        self.base_model = base_model
+        self.base_model = AutoModel.from_pretrained(base_model_path)
+
+        for param in self.base_model.parameters():
+            param.requires_grad = False
+        
         self.classifier = nn.Linear(self.base_model.config.hidden_size * 2, num_labels)
+
+    @classmethod
+    def from_classifier_head(cls, base_model_path: str, path: str, num_labels: int) -> nn.Module:
+        model = cls(base_model_path, num_labels)
+        model.classifier.load_state_dict(torch.load(path))
+        return model
 
     def forward(
         self, input_ids: torch.tensor, attention_mask: torch.tensor
