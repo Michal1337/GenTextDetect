@@ -1,7 +1,11 @@
 import argparse
+from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
-from gen_params import *
-from gen_utils import *
+
+from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
+                        MAX_TOKENS_PROMPT, RAW_DATA_BASE_PATH, SAMPLING_PARAMS)
+from gen_utils import check_for_too_long_prompts, generate_texts
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-articles-2020.csv"
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt_articles_human.csv"
@@ -56,7 +60,7 @@ def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
     for headline, keywords in df[PROMPT_COLS].values:
         try:
             kw = ", ".join(eval(keywords))  # Convert string list to actual list
-        except:
+        except TypeError:
             kw = "None"
 
         prompt = [

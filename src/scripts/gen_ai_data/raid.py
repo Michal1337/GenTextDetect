@@ -1,9 +1,12 @@
 import argparse
+from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
 from datasets import load_dataset
 
-from gen_params import *
-from gen_utils import *
+from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
+                        MAX_TOKENS_PROMPT, SAMPLING_PARAMS)
+from gen_utils import check_for_too_long_prompts, generate_texts
 
 DS_NAME = "liamdugan/raid"
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "raid_human.csv"

@@ -6,7 +6,14 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ex_params import DATASETS, DATASETS_PATH, MASTER_STATS_PATH, STATS_PATH, DATA_HUMAN_PATH, DATA_AI_PATH
+from ex_params import (
+    DATASETS,
+    DATASETS_PATH,
+    MASTER_STATS_PATH,
+    STATS_PATH,
+    DATA_HUMAN_PATH,
+    DATA_AI_PATH,
+)
 from ex_utils import get_csv_paths
 
 BATCH_SIZE = 256
@@ -44,13 +51,17 @@ def create_dataset_idx(
         df_main.loc[mask_c1, "prob"] *= c1
 
     weights = [
-        1
-        / (
-            df_main.loc[df_main["data"] == ds, "avg_token_per_sample"]
-            * df_main.loc[df_main["data"] == ds, "prob"]
-        ).sum()
+        df_main.loc[df_main["data"] == ds, "num_tokens"].sum()
         for ds in df_main["data"].unique()
     ]
+
+    # weights = [
+    #     (
+    #         df_main.loc[df_main["data"] == ds, "num_tokens"]
+    #         * df_main.loc[df_main["data"] == ds, "prob"]
+    #     ).sum()
+    #     for ds in df_main["data"].unique()
+    # ]
     probs = np.array(weights) / np.sum(weights)
 
     total_tokens = 0
@@ -91,7 +102,9 @@ def create_dataset_idx(
     )
 
 
-def idx2csv(df: pd.DataFrame, cols_c0: List[str], reverse_labels: bool, save_path: str) -> None:
+def idx2csv(
+    df: pd.DataFrame, cols_c0: List[str], reverse_labels: bool, save_path: str
+) -> None:
     # init csv
     with open(save_path, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
@@ -128,7 +141,11 @@ if __name__ == "__main__":
     paths = get_csv_paths(STATS_PATH, recursive=True)
 
     for name, config in DATASETS.items():
-        max_tokens, cols_c0, reverse_labels = config["num_tokens"], config["cols_c0"], config["reverse_labels"]
+        max_tokens, cols_c0, reverse_labels = (
+            config["num_tokens"],
+            config["cols_c0"],
+            config["reverse_labels"],
+        )
 
         stats = dict(
             {
@@ -140,9 +157,7 @@ if __name__ == "__main__":
         )
 
         df_main = pd.read_csv(MASTER_STATS_PATH)
-        df_main["avg_token_per_sample"] = (
-            df_main["num_tokens"] / df_main["num_samples"]
-        )
+        df_main["avg_token_per_sample"] = df_main["num_tokens"] / df_main["num_samples"]
 
         os.mkdir(f"{DATASETS_PATH}{name}/")
         save_path_train_idx = f"{DATASETS_PATH}/{name}/train_idx.csv"
@@ -151,7 +166,12 @@ if __name__ == "__main__":
             max_tokens, BATCH_SIZE, stats, df_main, cols_c0, save_path_train_idx
         )
         create_dataset_idx(
-            int(max_tokens * 0.3), BATCH_SIZE, stats, df_main, cols_c0, save_path_val_idx
+            int(max_tokens * 0.3),
+            BATCH_SIZE,
+            stats,
+            df_main,
+            cols_c0,
+            save_path_val_idx,
         )
 
         df_idx = pd.read_csv(save_path_train_idx)

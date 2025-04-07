@@ -1,6 +1,6 @@
-from gen_params import LLMS
 from huggingface_hub import snapshot_download
 
+from gen_params import LLMS
 
 if __name__ == "__main__":
     for model, path, quant in LLMS:
@@ -12,4 +12,3 @@ if __name__ == "__main__":
             ignore_patterns="*.pth",
         )
         print(f"Downloaded {model}!")
-

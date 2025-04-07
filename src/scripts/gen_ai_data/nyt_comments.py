@@ -1,10 +1,15 @@
 import argparse
+import random
+from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
-from gen_params import *
-from gen_utils import *
+
+from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
+                        MAX_TOKENS_PROMPT, RAW_DATA_BASE_PATH, SAMPLING_PARAMS)
+from gen_utils import check_for_too_long_prompts, generate_texts
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-comments-2020.csv"
-ARTICLES_PATH = "../../../data/data_raw/nyt-articles-2020.csv"  # Path to article abstracts
+ARTICLES_PATH = RAW_DATA_BASE_PATH + "nyt-articles-2020.csv"  # Path to article abstracts
 
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt_comments_human.csv"
 AI_DATA_PATH = AI_DATA_BASE_PATH + "nyt_comments/nyt-comments_"

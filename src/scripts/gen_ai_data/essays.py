@@ -1,8 +1,11 @@
 import argparse
+from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
-from typing import Optional
-from gen_params import *
-from gen_utils import *
+
+from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
+                        MAX_TOKENS_PROMPT, RAW_DATA_BASE_PATH, SAMPLING_PARAMS)
+from gen_utils import check_for_too_long_prompts, generate_texts
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "essays.csv"  # Path to the raw data
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "essays_human.csv"  # Path to the human data
