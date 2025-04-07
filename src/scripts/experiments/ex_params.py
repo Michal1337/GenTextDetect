@@ -52,6 +52,11 @@ NUM_TOKENS_DETECT_LLM: int = 100_000_000
 NUM_TOKENS_DETECT_LLM_FAMILY: int = 100_000_000
 
 DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
+    "master_testset": {
+        "num_tokens": 100_000,
+        "cols_c0": ["human"],
+        "reverse_labels": False,
+    },
     "master_mini": {
         "num_tokens": 100_000,
         "cols_c0": ["human"],

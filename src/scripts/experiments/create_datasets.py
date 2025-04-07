@@ -13,14 +13,42 @@ from ex_utils import get_csv_paths
 BATCH_SIZE = 256
 
 
-def create_dataset_idx(
-    max_tokens: int,
-    batch_size: int,
-    stats: Dict[str, pd.DataFrame],
-    df_main: pd.DataFrame,
-    cols_c0: List[str],
-    save_path: str,
-):
+def remove_test_samples(
+    stats: Dict[str, pd.DataFrame], test_idx: pd.DataFrame
+) -> Dict[str, pd.DataFrame]:
+    for data in tqdm(test_idx["data"].unique()):
+        for model in test_idx["model"].unique():
+            subset_idx = test_idx[
+                (test_idx["data"] == data) & (test_idx["model"] == model)
+            ]
+            stats[f"{data}_{model}"].drop(subset_idx["index"], inplace=True)
+
+    return stats
+
+
+def get_master_stats(stats: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    master_stats = {
+        "data": [],
+        "model": [],
+        "num_samples": [],
+        "num_sentences": [],
+        "num_words": [],
+        "num_chars": [],
+        "num_tokens": [],
+    }
+    for k, v in stats.items():
+        data, model = k.split("_")
+        master_stats["data"].append(data)
+        master_stats["model"].append(model)
+        master_stats["num_samples"].append(len(v))
+        for col in v.columns:
+            master_stats[col].append(v[col].sum())
+    df = pd.DataFrame(master_stats)
+    return df
+
+
+def calculate_probs(df_main: pd.DataFrame, cols_c0: List[str]) -> pd.DataFrame:
+    df_main["avg_token_per_sample"] = df_main["num_tokens"] / df_main["num_samples"]
 
     for ds in df_main["data"].unique():
         df_main.loc[df_main["data"].values == ds, "prob"] = (
@@ -44,6 +72,16 @@ def create_dataset_idx(
         df_main.loc[mask_c0, "prob"] *= c0
         df_main.loc[mask_c1, "prob"] *= c1
 
+    return df_main
+
+
+def create_dataset_idx(
+    max_tokens: int,
+    batch_size: int,
+    stats: Dict[str, pd.DataFrame],
+    df_main: pd.DataFrame,
+    save_path: str,
+) -> None:
     weights = [
         df_main.loc[df_main["data"] == ds, "num_tokens"].sum()
         for ds in df_main["data"].unique()
@@ -130,6 +168,9 @@ def idx2csv(
                     text = df_subset.iloc[i]["text"]
                     writer.writerow([text, label])
 
+        df_main = pd.read_csv(MASTER_STATS_PATH)
+        df_main["avg_token_per_sample"] = df_main["num_tokens"] / df_main["num_samples"]
+
 
 if __name__ == "__main__":
     paths = get_csv_paths(STATS_PATH, recursive=True)
@@ -150,28 +191,31 @@ if __name__ == "__main__":
             }
         )
 
-        df_main = pd.read_csv(MASTER_STATS_PATH)
-        df_main["avg_token_per_sample"] = df_main["num_tokens"] / df_main["num_samples"]
+        test_set_idx_path = DATASETS_PATH + "master_testset/test_idx.csv"
+        test_set_idx = pd.read_csv(test_set_idx_path)
+
+        stats = remove_test_samples(stats, test_set_idx)
+        df_main = get_master_stats(stats)
+        df_main = calculate_probs(df_main)
 
         os.mkdir(f"{DATASETS_PATH}{name}/")
-        save_path_train_idx = f"{DATASETS_PATH}/{name}/train_idx.csv"
-        save_path_val_idx = f"{DATASETS_PATH}/{name}/val_idx.csv"
+        save_path_train_idx = DATASETS_PATH + f"{name}/train_idx.csv"
+        save_path_val_idx = DATASETS_PATH + f"{name}/val_idx.csv"
         create_dataset_idx(
-            max_tokens, BATCH_SIZE, stats, df_main, cols_c0, save_path_train_idx
+            max_tokens, BATCH_SIZE, stats, df_main, save_path_train_idx
         )
         create_dataset_idx(
             int(max_tokens * 0.3),
             BATCH_SIZE,
             stats,
             df_main,
-            cols_c0,
             save_path_val_idx,
         )
 
         df_idx = pd.read_csv(save_path_train_idx)
-        save_path_ds = f"{DATASETS_PATH}/{name}/train.csv"
+        save_path_ds = DATASETS_PATH + f"{name}/train.csv"
         idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
 
         df_idx = pd.read_csv(save_path_val_idx)
-        save_path_ds = f"{DATASETS_PATH}/{name}/val.csv"
+        save_path_ds = DATASETS_PATH + f"{name}/val.csv"
         idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
