@@ -70,6 +70,9 @@ if __name__ == "__main__":
         shuffle=False,
         collate_fn=lambda batch: collate_fn(batch, tokenizer),
         sampler=train_sampler,
+        num_workers=4,
+        pin_memory=True,
+        prefetch_factor=2
     )
 
     if master_process:
