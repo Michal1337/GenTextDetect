@@ -96,41 +96,42 @@ def create_dataset_idx(
     # ]
     probs = np.array(weights) / np.sum(weights)
 
-    total_tokens = 0
-    total_sentences = 0
-    total_samples = 0
-    cnt = 0
+    total_tokens, total_sentences, total_samples = 0, 0, 0
+    cnt, err_cnt = 0, 0
     while total_tokens < max_tokens:
         data = np.random.choice(df_main["data"].unique(), p=probs)
         tmp = df_main[(df_main["data"] == data)]
         model = np.random.choice(tmp["model"], p=tmp["prob"])
 
         stat = stats[f"{data}_{model}"]
+        try:
+            slct = stat.sample(n=batch_size)
+            stat.drop(slct.index, inplace=True)
 
-        slct = stat.sample(n=batch_size)
-        stat.drop(slct.index, inplace=True)
+            total_tokens += slct.sum()["num_tokens"]
+            total_sentences += slct.sum()["num_sentences"]
+            total_samples += batch_size
 
-        total_tokens += slct.sum()["num_tokens"]
-        total_sentences += slct.sum()["num_sentences"]
-        total_samples += batch_size
+            # save data, model, slct.index to csv
+            slct["data"] = data
+            slct["model"] = model
+            slct.reset_index(inplace=True)
+            # slct.drop(columns=["num_sentences", "num_words", "num_chars", "num_tokens"], inplace=True)
+            slct.to_csv(
+                save_path, mode="a", header=not os.path.exists(save_path), index=False
+            )
 
-        # save data, model, slct.index to csv
-        slct["data"] = data
-        slct["model"] = model
-        slct.reset_index(inplace=True)
-        # slct.drop(columns=["num_sentences", "num_words", "num_chars", "num_tokens"], inplace=True)
-        slct.to_csv(
-            save_path, mode="a", header=not os.path.exists(save_path), index=False
-        )
+            cnt += 1
+        except ValueError:
+            err_cnt += 1
 
-        cnt += 1
         if cnt % 1000 == 0:
             print(
                 f"total_tokens: {total_tokens}, total_sentences: {total_sentences}, total_samples: {total_samples}"
             )
 
     print(
-        f"Final samples: {total_samples}, Final sentences: {total_sentences}, Final tokens: {total_tokens}"
+        f"Final samples: {total_samples}, Final sentences: {total_sentences}, Final tokens: {total_tokens}, Unsuccessful samples: {err_cnt}"
     )
 
 
@@ -195,15 +196,18 @@ if __name__ == "__main__":
         test_set_idx = pd.read_csv(test_set_idx_path)
 
         stats = remove_test_samples(stats, test_set_idx)
+
         df_main = get_master_stats(stats)
         df_main = calculate_probs(df_main)
 
         os.mkdir(f"{DATASETS_PATH}{name}/")
         save_path_train_idx = DATASETS_PATH + f"{name}/train_idx.csv"
+        create_dataset_idx(max_tokens, BATCH_SIZE, stats, df_main, save_path_train_idx)
+        # recalculate probs
+        df_main = get_master_stats(stats)
+        df_main = calculate_probs(df_main)
+
         save_path_val_idx = DATASETS_PATH + f"{name}/val_idx.csv"
-        create_dataset_idx(
-            max_tokens, BATCH_SIZE, stats, df_main, save_path_train_idx
-        )
         create_dataset_idx(
             int(max_tokens * 0.3),
             BATCH_SIZE,
@@ -211,7 +215,7 @@ if __name__ == "__main__":
             df_main,
             save_path_val_idx,
         )
-
+        # create datatsets from indexes
         df_idx = pd.read_csv(save_path_train_idx)
         save_path_ds = DATASETS_PATH + f"{name}/train.csv"
         idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)

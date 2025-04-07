@@ -17,53 +17,12 @@ from transformers import AutoTokenizer
 
 from ex_params import (BASELINE_MODELS, CHECKPOINTS_PATH, DATASETS_PATH, SEED,
                        TRAINING_HISTORY_PATH)
-from ex_utils import TextDataset, collate_fn
+from ex_utils import TextDataset, collate_fn, evaluate
 from models import BaselineClassifier
 
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
-
-
-def evaluate(model, dataloader, device):
-    model.eval()
-    preds, targets = [], []
-    total_loss = 0.0
-    loss_fn = BCEWithLogitsLoss()
-
-    with torch.no_grad():
-        for batch in dataloader:
-            input_ids = batch["input_ids"].to(device)
-            labels = batch["labels"].to(device)
-
-            outputs = model(input_ids)
-
-            mask = labels.view(-1) != -100
-            labels = labels.view(-1)[mask].float()
-            outputs = outputs.view(-1)[mask]
-
-            loss = loss_fn(outputs, labels)
-            total_loss += loss.item()
-
-            logits = torch.sigmoid(outputs).squeeze().cpu().numpy()
-            labels = labels.squeeze().cpu().numpy()
-
-            preds.extend(logits)
-            targets.extend(labels)
-
-    bin_preds = [1 if p >= 0.5 else 0 for p in preds]
-
-    metrics = {
-        "loss": total_loss / len(dataloader),
-        "accuracy": accuracy_score(targets, bin_preds),
-        "balanced_accuracy": balanced_accuracy_score(targets, bin_preds),
-        "precision": precision_score(targets, bin_preds),
-        "recall": recall_score(targets, bin_preds),
-        "f1": f1_score(targets, bin_preds),
-        "auc": roc_auc_score(targets, preds),
-    }
-
-    return metrics
 
 
 if __name__ == "__main__":
@@ -142,7 +101,7 @@ if __name__ == "__main__":
 
     history_path = (
         TRAINING_HISTORY_PATH
-        + f"training_history_baseline_{args.model_size}_{args.dataset_name}.csv"
+        + f"baseline/training_history_baseline_{args.model_size}_{args.dataset_name}.csv"
     )
     if master_process:
         with open(history_path, mode="w", newline="") as f:
@@ -221,7 +180,7 @@ if __name__ == "__main__":
                 "auc": roc_auc_score(all_labels, all_logits),
             }
 
-            val_metrics = evaluate(model, val_loader, device)
+            val_metrics = evaluate(model, val_loader, device, "baseline")
 
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")
             print("Train Metrics:", train_metrics)
@@ -245,7 +204,7 @@ if __name__ == "__main__":
                 torch.save(
                     raw_model.state_dict(),
                     CHECKPOINTS_PATH
-                    + f"baseline_{args.model_size}_{args.dataset_name}.pt",
+                    + f"baseline/baseline_{args.model_size}_{args.dataset_name}.pt",
                 )
                 print(f"New best model saved (val accuracy: {best_val_acc:.4f})")
 

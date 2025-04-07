@@ -34,6 +34,7 @@ def remove_errors(path: str) -> None:
         if user_input.lower() == "y":
             df.drop(index=[i for i, _ in err], inplace=True)
             # df["text"] = df["text"].apply(fix_text)
+            df.reset_index(drop=True, inplace=True)
             df.to_csv(path, index=False)
         else:
             print(f"Errors in {path} were not removed.")
