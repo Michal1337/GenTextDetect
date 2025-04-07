@@ -7,8 +7,7 @@ from transformers import AutoTokenizer
 
 
 class TextDataset(Dataset):
-    def __init__(
-        self, texts: List[str], labels: List[int]) -> None:
+    def __init__(self, texts: List[str], labels: List[int]) -> None:
         """
         texts: list of texts.
         labels: list of labels for all samples.

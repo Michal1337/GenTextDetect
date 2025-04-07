@@ -6,14 +6,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ex_params import (
-    DATASETS,
-    DATASETS_PATH,
-    MASTER_STATS_PATH,
-    STATS_PATH,
-    DATA_HUMAN_PATH,
-    DATA_AI_PATH,
-)
+from ex_params import (DATA_AI_PATH, DATA_HUMAN_PATH, DATASETS, DATASETS_PATH,
+                       MASTER_STATS_PATH, STATS_PATH)
 from ex_utils import get_csv_paths
 
 BATCH_SIZE = 256

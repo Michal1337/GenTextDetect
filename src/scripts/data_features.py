@@ -1,7 +1,6 @@
-import csv
 import os
 from collections import Counter
-from typing import Callable, Dict, List, Union
+from typing import Callable, List, Union
 
 import nltk
 import numpy as np
@@ -56,12 +55,11 @@ def nlp_features(text):
         "adjective_ratio": pos_counts.get("ADJ", 0) / len(doc),
         "average_sentence_length": sum(len(sent.text.split()) for sent in doc.sents)
         / len(list(doc.sents)),
-        "entity_count": len(doc.ents),
+        "entity_count": len(entities),
         "syntactic_depth": max([len(list(token.ancestors)) for token in doc] or [0]),
         "dependency_distance": np.mean(
             [abs(token.head.i - token.i) for token in doc if token.head != token]
         ),
-        "entity_count": len(entities),
         "average_sentiment_score": np.mean(sentiment_scores) if sentiment_scores else 0,
         "sentiment_variability": (
             np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0

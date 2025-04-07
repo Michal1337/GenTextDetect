@@ -10,11 +10,13 @@ class FineTuneClassifier(nn.Module):
 
         for param in self.base_model.parameters():
             param.requires_grad = False
-        
+
         self.classifier = nn.Linear(self.base_model.config.hidden_size * 2, num_labels)
 
     @classmethod
-    def from_classifier_head(cls, base_model_path: str, path: str, num_labels: int) -> nn.Module:
+    def from_classifier_head(
+        cls, base_model_path: str, path: str, num_labels: int
+    ) -> nn.Module:
         model = cls(base_model_path, num_labels)
         model.classifier.load_state_dict(torch.load(path))
         return model

@@ -242,7 +242,8 @@ if __name__ == "__main__":
                 best_val_acc = val_metrics["accuracy"]
                 torch.save(
                     raw_model.classifier.state_dict(),
-                    CHECKPOINTS_PATH + f"finetuned_model_{model_name}_{args.dataset_name}.pt",
+                    CHECKPOINTS_PATH
+                    + f"finetuned_model_{model_name}_{args.dataset_name}.pt",
                 )
                 print(f"New best classifier saved (val accuracy: {best_val_acc:.4f})")
 

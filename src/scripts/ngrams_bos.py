@@ -4,17 +4,11 @@ from collections import Counter
 from typing import Dict, List
 
 import pandas as pd
-from nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.util import ngrams
+from nltk.tokenize import sent_tokenize, word_tokenize
 from tqdm import tqdm
 
-from params import (
-    DATA_AI_PATH,
-    DATA_HUMAN_PATH,
-    MAX_NGRAM_LEVEL,
-    MIN_NGRAM_LEVEL,
-    NGRAMS_PATH,
-)
+from params import (DATA_AI_PATH, DATA_HUMAN_PATH, MAX_NGRAM_LEVEL,
+                    MIN_NGRAM_LEVEL, NGRAMS_PATH)
 from utils import get_csv_paths
 
 

@@ -22,7 +22,7 @@ def remove_errors(path: str) -> None:
     for i, text in enumerate(texts):
         try:
             tokenizer.encode(text)
-        except:
+        except TypeError:
             err.append([i, text])
 
     if len(err) > 0:
@@ -33,7 +33,7 @@ def remove_errors(path: str) -> None:
         user_input = input(f"Do you want to remove the errors in {path}? (y/n): ")
         if user_input.lower() == "y":
             df.drop(index=[i for i, _ in err], inplace=True)
-            df["text"] = df["text"].apply(fix_text)
+            # df["text"] = df["text"].apply(fix_text)
             df.to_csv(path, index=False)
         else:
             print(f"Errors in {path} were not removed.")

@@ -1,6 +1,7 @@
 import os
 from typing import List
 
+
 def get_csv_paths(folder_path: str, recursive: bool = False) -> List[str]:
     if recursive:
         # Walk through all subdirectories
