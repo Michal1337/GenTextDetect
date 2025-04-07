@@ -91,7 +91,7 @@ def create_dataset_idx(
     )
 
 
-def idx2csv(df: pd.DataFrame, cols_c0: List[str], save_path: str) -> None:
+def idx2csv(df: pd.DataFrame, cols_c0: List[str], reverse_labels: bool, save_path: str) -> None:
     # init csv
     with open(save_path, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
@@ -111,7 +111,10 @@ def idx2csv(df: pd.DataFrame, cols_c0: List[str], save_path: str) -> None:
             idx = subset["index"].tolist()
             df_subset = df_data.iloc[idx]
 
-            label = 0 if model in cols_c0 else 1
+            if reverse_labels:
+                label = 1 if model in cols_c0 else 0
+            else:
+                label = 0 if model in cols_c0 else 1
 
             # save df_subset to csv at save_path
             with open(save_path, mode="a", newline="", encoding="utf-8") as file:
@@ -125,7 +128,7 @@ if __name__ == "__main__":
     paths = get_csv_paths(STATS_PATH, recursive=True)
 
     for name, config in DATASETS.items():
-        max_tokens, cols_c0 = config["num_tokens"], config["cols_c0"]
+        max_tokens, cols_c0, reverse_labels = config["num_tokens"], config["cols_c0"], config["reverse_labels"]
 
         stats = dict(
             {
@@ -153,8 +156,8 @@ if __name__ == "__main__":
 
         df_idx = pd.read_csv(save_path_train_idx)
         save_path_ds = f"{DATASETS_PATH}/{name}/train.csv"
-        idx2csv(df_idx, cols_c0, save_path_ds)
+        idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
 
         df_idx = pd.read_csv(save_path_val_idx)
         save_path_ds = f"{DATASETS_PATH}/{name}/val.csv"
-        idx2csv(df_idx, cols_c0, save_path_ds)
+        idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
