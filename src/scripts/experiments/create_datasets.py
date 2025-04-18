@@ -6,10 +6,17 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ex_params import (DATA_AI_PATH, DATA_HUMAN_PATH, DATASETS, DATASETS_PATH,
-                       MASTER_STATS_PATH, STATS_PATH)
+from ex_params import (
+    DATA_AI_PATH,
+    DATA_HUMAN_PATH,
+    DATASETS,
+    DATASETS_PATH,
+    STATS_PATH,
+    SEED,
+)
 from ex_utils import get_csv_paths
 
+np.random.seed(SEED)
 BATCH_SIZE = 256
 
 
@@ -83,17 +90,12 @@ def create_dataset_idx(
     save_path: str,
 ) -> None:
     weights = [
-        df_main.loc[df_main["data"] == ds, "num_tokens"].sum()
+        (
+            df_main.loc[df_main["data"] == ds, "num_tokens"]
+            * df_main.loc[df_main["data"] == ds, "prob"]
+        ).sum()
         for ds in df_main["data"].unique()
     ]
-
-    # weights = [
-    #     (
-    #         df_main.loc[df_main["data"] == ds, "num_tokens"]
-    #         * df_main.loc[df_main["data"] == ds, "prob"]
-    #     ).sum()
-    #     for ds in df_main["data"].unique()
-    # ]
     probs = np.array(weights) / np.sum(weights)
 
     total_tokens, total_sentences, total_samples = 0, 0, 0
@@ -105,7 +107,7 @@ def create_dataset_idx(
 
         stat = stats[f"{data}_{model}"]
         try:
-            slct = stat.sample(n=batch_size)
+            slct = stat.sample(n=batch_size, replace=False, random_state=SEED)
             stat.drop(slct.index, inplace=True)
 
             total_tokens += slct.sum()["num_tokens"]
@@ -169,12 +171,11 @@ def idx2csv(
                     text = df_subset.iloc[i]["text"]
                     writer.writerow([text, label])
 
-        df_main = pd.read_csv(MASTER_STATS_PATH)
-        df_main["avg_token_per_sample"] = df_main["num_tokens"] / df_main["num_samples"]
-
 
 if __name__ == "__main__":
-    paths = get_csv_paths(STATS_PATH, recursive=True)
+    paths = get_csv_paths(STATS_PATH + "data_ai/", recursive=True) + get_csv_paths(
+        STATS_PATH + "data_human/"
+    )
 
     for name, config in DATASETS.items():
         max_tokens, cols_c0, reverse_labels = (
@@ -191,35 +192,50 @@ if __name__ == "__main__":
                 for path in paths
             }
         )
+        if name == "master-testset":
+            df_main = get_master_stats(stats)
+            df_main = calculate_probs(df_main, cols_c0)
+            os.mkdir(f"{DATASETS_PATH}{name}/")
+            test_set_idx_path = DATASETS_PATH + f"{name}/test_idx.csv"
+            create_dataset_idx(
+                max_tokens, BATCH_SIZE, stats, df_main, test_set_idx_path
+            )
+            save_path_ds = DATASETS_PATH + f"{name}/test.csv"
+            df_idx = pd.read_csv(test_set_idx_path)
+            idx2csv(df_idx, cols_c0, False, save_path_ds)
 
-        test_set_idx_path = DATASETS_PATH + "master_testset/test_idx.csv"
-        test_set_idx = pd.read_csv(test_set_idx_path)
+        else:
+            test_set_idx_path = DATASETS_PATH + "master-testset/test_idx.csv"
+            test_set_idx = pd.read_csv(test_set_idx_path)
 
-        stats = remove_test_samples(stats, test_set_idx)
+            stats = remove_test_samples(stats, test_set_idx)
 
-        df_main = get_master_stats(stats)
-        df_main = calculate_probs(df_main)
+            df_main = get_master_stats(stats)
+            df_main = calculate_probs(df_main, cols_c0)
 
-        os.mkdir(f"{DATASETS_PATH}{name}/")
-        save_path_train_idx = DATASETS_PATH + f"{name}/train_idx.csv"
-        create_dataset_idx(max_tokens, BATCH_SIZE, stats, df_main, save_path_train_idx)
-        # recalculate probs
-        df_main = get_master_stats(stats)
-        df_main = calculate_probs(df_main)
+            os.mkdir(f"{DATASETS_PATH}{name}/")
+            save_path_train_idx = DATASETS_PATH + f"{name}/train_idx.csv"
+            create_dataset_idx(
+                max_tokens, BATCH_SIZE, stats, df_main, save_path_train_idx
+            )
 
-        save_path_val_idx = DATASETS_PATH + f"{name}/val_idx.csv"
-        create_dataset_idx(
-            int(max_tokens * 0.3),
-            BATCH_SIZE,
-            stats,
-            df_main,
-            save_path_val_idx,
-        )
-        # create datatsets from indexes
-        df_idx = pd.read_csv(save_path_train_idx)
-        save_path_ds = DATASETS_PATH + f"{name}/train.csv"
-        idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
+            # recalculate probs
+            df_main = get_master_stats(stats)
+            df_main = calculate_probs(df_main, cols_c0)
 
-        df_idx = pd.read_csv(save_path_val_idx)
-        save_path_ds = DATASETS_PATH + f"{name}/val.csv"
-        idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
+            save_path_val_idx = DATASETS_PATH + f"{name}/val_idx.csv"
+            create_dataset_idx(
+                int(max_tokens * 0.3),
+                BATCH_SIZE,
+                stats,
+                df_main,
+                save_path_val_idx,
+            )
+            # create datatsets from indexes
+            df_idx = pd.read_csv(save_path_train_idx)
+            save_path_ds = DATASETS_PATH + f"{name}/train.csv"
+            idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)
+
+            df_idx = pd.read_csv(save_path_val_idx)
+            save_path_ds = DATASETS_PATH + f"{name}/val.csv"
+            idx2csv(df_idx, cols_c0, reverse_labels, save_path_ds)

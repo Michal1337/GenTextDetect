@@ -5,10 +5,23 @@ from params import DATA_AI_PATH, DATA_HUMAN_PATH
 from utils import get_csv_paths
 
 
-def fix_text(text: str) -> str:
-    if isinstance(eval(text), list) and len(eval(text)) == 1:
-        text = eval(text)[0]
-    return text
+def fix_text(s: str) -> str:
+    """
+    Remove a leading '", [' or '[' and a trailing '", ]' or ']' from the given string.
+    """
+    # Remove leading patterns
+    for prefix in ('"', "[", '["'):
+        if s.startswith(prefix):
+            s = s[len(prefix) :]
+            break
+
+    # Remove trailing patterns
+    for suffix in ('"', "]", '"]'):
+        if s.endswith(suffix):
+            s = s[: -len(suffix)]
+            break
+
+    return s
 
 
 def remove_errors(path: str) -> None:
@@ -33,11 +46,12 @@ def remove_errors(path: str) -> None:
         user_input = input(f"Do you want to remove the errors in {path}? (y/n): ")
         if user_input.lower() == "y":
             df.drop(index=[i for i, _ in err], inplace=True)
-            # df["text"] = df["text"].apply(fix_text)
-            df.reset_index(drop=True, inplace=True)
-            df.to_csv(path, index=False)
         else:
             print(f"Errors in {path} were not removed.")
+
+    df["text"] = df["text"].apply(fix_text)
+    df.reset_index(drop=True, inplace=True)
+    df.to_csv(path, index=False)
 
 
 if __name__ == "__main__":
