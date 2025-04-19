@@ -5,8 +5,10 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
-                        MAX_TOKENS_PROMPT, RAW_DATA_BASE_PATH, SAMPLING_PARAMS)
+                        MAX_TOKENS_PROMPT, RAW_DATA_BASE_PATH, SAMPLING_PARAMS, SEED)
 from gen_utils import check_for_too_long_prompts, generate_texts
+
+random.seed(SEED)
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-comments-2020.csv"
 ARTICLES_PATH = RAW_DATA_BASE_PATH + "nyt-articles-2020.csv"  # Path to article abstracts

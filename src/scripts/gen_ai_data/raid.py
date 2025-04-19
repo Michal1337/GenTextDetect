@@ -1,12 +1,15 @@
 import argparse
+import random
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from datasets import load_dataset
 
 from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
-                        MAX_TOKENS_PROMPT, SAMPLING_PARAMS)
+                        MAX_TOKENS_PROMPT, SAMPLING_PARAMS, SEED)
 from gen_utils import check_for_too_long_prompts, generate_texts
+
+random.seed(SEED)
 
 DS_NAME = "liamdugan/raid"
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "raid_human.csv"
@@ -38,7 +41,8 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Generated text:\n"},
 ]
 
-BATCH_SIZE = 8
+PERCENT_SAMPLE = 0.25
+BATCH_SIZE = 64
 
 
 def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
@@ -85,6 +89,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = process_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI data
     generate_texts(

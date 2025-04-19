@@ -1,4 +1,5 @@
 import argparse
+import random
 import csv
 from typing import Dict, List, Optional, Tuple
 
@@ -13,6 +14,7 @@ from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
 from gen_utils import check_for_too_long_prompts, generate_texts
 
 np.random.seed(SEED)
+random.seed(SEED)
 
 DS_NAME = "google-research-datasets/natural_questions"
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv"
@@ -34,7 +36,8 @@ BASE_PROMPT = [
     {"role": "assistant", "content": "Answer:\n"},
 ]
 
-BATCH_SIZE = 128
+PERCENT_SAMPLE = 0.05
+BATCH_SIZE = 32
 
 
 def nq2csv(dataset, save_path, batch_size):
@@ -84,11 +87,14 @@ def preprocess_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
     """Preprocess the Natural Questions dataset and create prompts."""
 
     # Load dataset and convert to CSV
-    dataset = load_dataset(DS_NAME)
-    nq2csv(dataset, RAW_DATA_PATH, BATCH_SIZE)
+    # dataset = load_dataset(DS_NAME)
+    # nq2csv(dataset, RAW_DATA_PATH, BATCH_SIZE)
 
     # Read the processed CSV
     df = pd.read_csv(RAW_DATA_PATH)
+    df.dropna(inplace=True)
+    df.drop_duplicates(subset="answer", inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
     # Create prompts
     prompts = [
@@ -121,6 +127,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = preprocess_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI responses
     generate_texts(

@@ -1,4 +1,5 @@
 import argparse
+import random
 import re
 from typing import Dict, List, Optional, Tuple
 
@@ -30,7 +31,8 @@ BASE_PROMPT = [
     {"role": "user", "content": "Tweet:\n{tweet}"},
     {"role": "assistant", "content": "Similar tweet:\n"},
 ]
-BATCH_SIZE = 8  # Number of prompts to generate at once
+PERCENT_SAMPLE = 0.4
+BATCH_SIZE = 512  # Number of prompts to generate at once
 
 
 def standard_chars(s: str) -> bool:
@@ -85,6 +87,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = process_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI data
     generate_texts(

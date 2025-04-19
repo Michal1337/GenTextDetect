@@ -1,12 +1,15 @@
 import argparse
+import random
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from datasets import load_dataset
 
 from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
-                        MAX_TOKENS_PROMPT, SAMPLING_PARAMS)
+                        MAX_TOKENS_PROMPT, SAMPLING_PARAMS, SEED)
 from gen_utils import check_for_too_long_prompts, generate_texts
+
+random.seed(SEED)
 
 DS_NAME = "EdinburghNLP/xsum"  # Path to the raw data
 HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "xsum_human.csv"  # Path to the human data
@@ -28,7 +31,8 @@ BASE_PROMPT = [
     {"role": "user", "content": "Summary:\n{summary}"},
     {"role": "assistant", "content": "News article:\n"},
 ]
-BATCH_SIZE = 8  # Number of prompts to generate at once
+PERCENT_SAMPLE = 0.15
+BATCH_SIZE = 256  # Number of prompts to generate at once
 
 
 def process_data() -> Tuple[pd.DataFrame, List[List[Dict[str, str]]]]:
@@ -76,6 +80,8 @@ def main(llm_name: str, llm_path: str, quant: Optional[str] = None) -> None:
 
     # Preprocess data
     df, prompts = process_data()
+
+    prompts = random.sample(prompts, int(len(prompts) * PERCENT_SAMPLE))
 
     # Generate AI data
     generate_texts(
