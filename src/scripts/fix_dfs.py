@@ -1,3 +1,5 @@
+import re
+
 import pandas as pd
 import tiktoken
 
@@ -5,21 +7,28 @@ from params import DATA_AI_PATH, DATA_HUMAN_PATH
 from utils import get_csv_paths
 
 
-def fix_text(s: str) -> str:
+def clean_text(s: str) -> str:
     """
     Remove a leading '", [' or '[' and a trailing '", ]' or ']' from the given string.
     """
     # Remove leading patterns
-    for prefix in ('"', "[", '["'):
-        if s.startswith(prefix):
-            s = s[len(prefix) :]
-            break
+    try:
+        for prefix in ('"', "[", '["'):
+            if s.startswith(prefix):
+                s = s[len(prefix) :]
+                break
 
-    # Remove trailing patterns
-    for suffix in ('"', "]", '"]'):
-        if s.endswith(suffix):
-            s = s[: -len(suffix)]
-            break
+        # Remove trailing patterns
+        for suffix in ('"', "]", '"]'):
+            if s.endswith(suffix):
+                s = s[: -len(suffix)]
+                break
+
+        s = s.replace("  ", "")
+        s = s.strip()
+        s = re.sub(r"\n{3,}", "\n\n", s)
+    except TypeError:
+        pass
 
     return s
 
@@ -27,6 +36,7 @@ def fix_text(s: str) -> str:
 def remove_errors(path: str) -> None:
     print(f"Processing {path}...")
     df = pd.read_csv(path)
+    df["text"] = df["text"].apply(clean_text)
     texts = df["text"].tolist()
 
     print(f"Number of texts: {len(texts)}")
@@ -49,7 +59,6 @@ def remove_errors(path: str) -> None:
         else:
             print(f"Errors in {path} were not removed.")
 
-    df["text"] = df["text"].apply(fix_text)
     df.reset_index(drop=True, inplace=True)
     df.to_csv(path, index=False)
 
