@@ -1,3 +1,4 @@
+import os
 import csv
 import random
 from itertools import islice
@@ -116,25 +117,26 @@ def generate_texts(
     csv_path = f"{base_path}{llm_name.split('/')[-1]}.csv"
 
     # init csv file
-    with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["prompt", "text", "temperature", "top_p", "top_k"])
+    if not os.path.exists(csv_path):
+        with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["prompt", "text", "temperature", "top_p", "top_k"])
 
-    batches = list(batchify(prompts, batch_size))
-    print(f"Generating texts for {llm_name}...")
-    for prompts_batch in tqdm(batches, total=len(prompts) // batch_size):
-        params = random.choice(sampling_params)
-        responses = generate_responses(model, prompts_batch, params)
-        save_to_csv(
-            csv_path,
-            prompts_batch,
-            responses,
-            params.temperature,
-            params.top_p,
-            params.top_k,
+        batches = list(batchify(prompts, batch_size))
+        print(f"Generating texts for {llm_name}...")
+        for prompts_batch in tqdm(batches, total=len(prompts) // batch_size):
+            params = random.choice(sampling_params)
+            responses = generate_responses(model, prompts_batch, params)
+            save_to_csv(
+                csv_path,
+                prompts_batch,
+                responses,
+                params.temperature,
+                params.top_p,
+                params.top_k,
+            )
+
+        df = pd.read_csv(csv_path)
+        print(
+            f"Expected samples: {len(prompts)}, Actual samples: {len(df)}, Match: {len(prompts) == len(df)}, Model: {llm_name}"
         )
-
-    df = pd.read_csv(csv_path)
-    print(
-        f"Expected samples: {len(prompts)}, Actual samples: {len(df)}, Match: {len(prompts) == len(df)}, Model: {llm_name}"
-    )

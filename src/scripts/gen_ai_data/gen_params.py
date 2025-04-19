@@ -41,48 +41,48 @@ LLMS: List[Tuple[str, str, Optional[str]]] = [
         MODEL_PATH + "meta-llama/Llama-3.1-8B-Instruct",
         None,
     ),
-    (
-        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
-        MODEL_PATH + "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
-        "awq",
-    ),
-    (
-        "meta-llama/Llama-3.2-3B-Instruct",
-        MODEL_PATH + "meta-llama/Llama-3.2-3B-Instruct",
-        None,
-    ),
-    (
-        "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
-        MODEL_PATH + "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
-        "awq",
-    ),
-    # Microsoft
-    (
-        "microsoft/Phi-3-mini-128k-instruct",
-        MODEL_PATH + "microsoft/Phi-3-mini-128k-instruct",
-        None,
-    ),
-    (
-        "microsoft/Phi-3-small-128k-instruct",
-        MODEL_PATH + "microsoft/Phi-3-small-128k-instruct",
-        None,
-    ),
-    (
-        "microsoft/Phi-3-medium-128k-instruct",
-        MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct",
-        None,
-    ),
-    (
-        "microsoft/Phi-3.5-mini-instruct",
-        MODEL_PATH + "microsoft/Phi-3.5-mini-instruct",
-        None,
-    ),
-    (
-        "microsoft/Phi-4-mini-instruct",
-        MODEL_PATH + "microsoft/Phi-4-mini-instruct",
-        None,
-    ),
-    ("microsoft/phi-4", MODEL_PATH + "microsoft/phi-4", None),
+    # (
+    #     "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    #     MODEL_PATH + "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    #     "awq",
+    # ),
+    # (
+    #     "meta-llama/Llama-3.2-3B-Instruct",
+    #     MODEL_PATH + "meta-llama/Llama-3.2-3B-Instruct",
+    #     None,
+    # ),
+    # (
+    #     "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
+    #     MODEL_PATH + "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
+    #     "awq",
+    # ),
+    # # Microsoft
+    # (
+    #     "microsoft/Phi-3-mini-128k-instruct",
+    #     MODEL_PATH + "microsoft/Phi-3-mini-128k-instruct",
+    #     None,
+    # ),
+    # (
+    #     "microsoft/Phi-3-small-128k-instruct",
+    #     MODEL_PATH + "microsoft/Phi-3-small-128k-instruct",
+    #     None,
+    # ),
+    # (
+    #     "microsoft/Phi-3-medium-128k-instruct",
+    #     MODEL_PATH + "microsoft/Phi-3-medium-128k-instruct",
+    #     None,
+    # ),
+    # (
+    #     "microsoft/Phi-3.5-mini-instruct",
+    #     MODEL_PATH + "microsoft/Phi-3.5-mini-instruct",
+    #     None,
+    # ),
+    # (
+    #     "microsoft/Phi-4-mini-instruct",
+    #     MODEL_PATH + "microsoft/Phi-4-mini-instruct",
+    #     None,
+    # ),
+    # ("microsoft/phi-4", MODEL_PATH + "microsoft/phi-4", None),
     # Mistral
     (
         "mistralai/Mistral-Nemo-Instruct-2407",
