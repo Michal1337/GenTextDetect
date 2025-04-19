@@ -2,6 +2,7 @@ import re
 
 import pandas as pd
 import tiktoken
+from tqdm import tqdm
 
 from params import DATA_AI_PATH, DATA_HUMAN_PATH
 from utils import get_csv_paths
@@ -26,8 +27,10 @@ def clean_text(s: str) -> str:
 
         s = s.replace("  ", "")
         s = s.strip()
-        s = re.sub(r"\n{3,}", "\n\n", s)
-    except TypeError:
+        s = re.sub(r"([^\w\s])\1{2,}", r"\1\1", s)
+
+        s = re.sub(r"([\n\t])\1{2,}", r"\1\1", s)
+    except (AttributeError, TypeError):
         pass
 
     return s
@@ -42,7 +45,7 @@ def remove_errors(path: str) -> None:
     print(f"Number of texts: {len(texts)}")
 
     err = []
-    for i, text in enumerate(texts):
+    for i, text in enumerate(tqdm(texts)):
         try:
             tokenizer.encode(text)
         except TypeError:
