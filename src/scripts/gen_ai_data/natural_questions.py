@@ -18,7 +18,7 @@ random.seed(SEED)
 
 DS_NAME = "google-research-datasets/natural_questions"
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "natural_questions.csv"
-HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "natural_questions_human.csv"
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "natural-questions_human.csv"
 AI_DATA_PATH = AI_DATA_BASE_PATH + "natural_questions/natural-questions_"
 
 PROMPT_COLS = ["document", "question"]

@@ -36,7 +36,7 @@ def clean_text(s: str) -> str:
     return s
 
 
-def remove_errors(path: str) -> None:
+def remove_errors(path: str, tokenizer: tiktoken) -> None:
     print(f"Processing {path}...")
     df = pd.read_csv(path)
     df["text"] = df["text"].apply(clean_text)
@@ -71,4 +71,4 @@ if __name__ == "__main__":
     paths = get_csv_paths(DATA_HUMAN_PATH) + get_csv_paths(DATA_AI_PATH, recursive=True)
 
     for path in paths:
-        remove_errors(path)
+        remove_errors(path, tokenizer)
