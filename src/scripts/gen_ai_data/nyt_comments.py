@@ -13,7 +13,7 @@ random.seed(SEED)
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-comments-2020.csv"
 ARTICLES_PATH = RAW_DATA_BASE_PATH + "nyt-articles-2020.csv"  # Path to article abstracts
 
-HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt_comments_human.csv"
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt-comments_human.csv"
 AI_DATA_PATH = AI_DATA_BASE_PATH + "nyt_comments/nyt-comments_"
 
 PROMPT_COLS = ["abstract", "commentBody"]
