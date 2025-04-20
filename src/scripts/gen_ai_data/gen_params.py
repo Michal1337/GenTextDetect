@@ -11,6 +11,9 @@ MAX_TOKENS_PROMPT: int = 16_384
 MAX_TOKENS_GENERATE: int = 16_384
 MAX_MODEL_LEN: int = MAX_TOKENS_PROMPT + MAX_TOKENS_GENERATE
 
+MAX_WORKERS: int = 8
+MAX_RETRIES: int = 5
+API_KEY: str = "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" # "your api key here"
 
 SAMPLING_PARAMS: List[SamplingParams] = [
     SamplingParams(
@@ -35,12 +38,12 @@ SAMPLING_PARAMS: List[SamplingParams] = [
 MODEL_PATH: str = "/mnt/evafs/groups/re-com/mgromadzki/llms/"
 
 LLMS: List[Tuple[str, str, Optional[str]]] = [
-    # Meta
-    (
-        "meta-llama/Llama-3.1-8B-Instruct",
-        MODEL_PATH + "meta-llama/Llama-3.1-8B-Instruct",
-        None,
-    ),
+    # # Meta
+    # (
+    #     "meta-llama/Llama-3.1-8B-Instruct",
+    #     MODEL_PATH + "meta-llama/Llama-3.1-8B-Instruct",
+    #     None,
+    # ),
     # (
     #     "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
     #     MODEL_PATH + "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -84,28 +87,31 @@ LLMS: List[Tuple[str, str, Optional[str]]] = [
     # ),
     # ("microsoft/phi-4", MODEL_PATH + "microsoft/phi-4", None),
     # Mistral
-    (
-        "mistralai/Mistral-Nemo-Instruct-2407",
-        MODEL_PATH + "mistralai/Mistral-Nemo-Instruct-2407",
-        None,
-    ),
-    (
-        "mistralai/Ministral-8B-Instruct-2410",
-        MODEL_PATH + "mistralai/Ministral-8B-Instruct-2410",
-        None,
-    ),
+    # (
+    #     "mistralai/Mistral-Nemo-Instruct-2407",
+    #     MODEL_PATH + "mistralai/Mistral-Nemo-Instruct-2407",
+    #     None,
+    # ),
+    # (
+    #     "mistralai/Ministral-8B-Instruct-2410",
+    #     MODEL_PATH + "mistralai/Ministral-8B-Instruct-2410",
+    #     None,
+    # ),
     # Qwen
-    ("Qwen/Qwen2-72B-Instruct-AWQ", MODEL_PATH + "Qwen/Qwen2-72B-Instruct-AWQ", "awq"),
-    ("Qwen/Qwen2-7B-Instruct", MODEL_PATH + "Qwen/Qwen2-7B-Instruct", None),
-    (
-        "Qwen/Qwen2.5-72B-Instruct-AWQ",
-        MODEL_PATH + "Qwen/Qwen2.5-72B-Instruct-AWQ",
-        "awq",
-    ),
-    ("Qwen/Qwen2.5-14B-Instruct", MODEL_PATH + "Qwen/Qwen2.5-14B-Instruct", None),
-    ("Qwen/Qwen2.5-7B-Instruct", MODEL_PATH + "Qwen/Qwen2.5-7B-Instruct", None),
-    ("Qwen/Qwen2.5-3B-Instruct", MODEL_PATH + "Qwen/Qwen2.5-3B-Instruct", None),
-    # Falcon
-    ("tiiuae/Falcon3-7B-Instruct", MODEL_PATH + "tiiuae/Falcon3-7B-Instruct", None),
-    ("tiiuae/Falcon3-3B-Instruct", MODEL_PATH + "tiiuae/Falcon3-3B-Instruct", None),
+    # ("Qwen/Qwen2-72B-Instruct-AWQ", MODEL_PATH + "Qwen/Qwen2-72B-Instruct-AWQ", "awq"),
+    # ("Qwen/Qwen2-7B-Instruct", MODEL_PATH + "Qwen/Qwen2-7B-Instruct", None),
+    # (
+    #     "Qwen/Qwen2.5-72B-Instruct-AWQ",
+    #     MODEL_PATH + "Qwen/Qwen2.5-72B-Instruct-AWQ",
+    #     "awq",
+    # ),
+    # ("Qwen/Qwen2.5-14B-Instruct", MODEL_PATH + "Qwen/Qwen2.5-14B-Instruct", None),
+    # ("Qwen/Qwen2.5-7B-Instruct", MODEL_PATH + "Qwen/Qwen2.5-7B-Instruct", None),
+    # ("Qwen/Qwen2.5-3B-Instruct", MODEL_PATH + "Qwen/Qwen2.5-3B-Instruct", None),
+    # # Falcon
+    # ("tiiuae/Falcon3-7B-Instruct", MODEL_PATH + "tiiuae/Falcon3-7B-Instruct", None),
+    # ("tiiuae/Falcon3-3B-Instruct", MODEL_PATH + "tiiuae/Falcon3-3B-Instruct", None),
+
+    # OpenAI
+    ("gpt-4.1-nano-2025-04-14", "proprietary", None),
 ]

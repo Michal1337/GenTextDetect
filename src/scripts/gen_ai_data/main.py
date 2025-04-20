@@ -2,7 +2,7 @@ import subprocess
 
 from gen_params import LLMS
 
-SCRIPT_PATH = "natural_questions.py"
+SCRIPT_PATH = "nyt_articles.py"
 
 
 def execute_script(script_path: str, llm_name: str, llm_path: str, quant: str) -> None:

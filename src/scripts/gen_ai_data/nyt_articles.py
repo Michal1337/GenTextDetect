@@ -8,7 +8,7 @@ from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
 from gen_utils import check_for_too_long_prompts, generate_texts
 
 RAW_DATA_PATH = RAW_DATA_BASE_PATH + "nyt-articles-2020.csv"
-HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt_articles_human.csv"
+HUMAN_DATA_PATH = HUMAN_DATA_BASE_PATH + "nyt-articles_human.csv"
 AI_DATA_PATH = AI_DATA_BASE_PATH + "nyt_articles/nyt-articles_"
 
 PROMPT_COLS = ["headline", "keywords"]
