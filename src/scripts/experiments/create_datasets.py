@@ -59,8 +59,8 @@ def calculate_probs(df_main: pd.DataFrame, cols_c0: List[str]) -> pd.DataFrame:
 
     for ds in df_main["data"].unique():
         df_main.loc[df_main["data"].values == ds, "prob"] = (
-            df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].values
-            / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].sum()
+            (1 / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].values)
+            / (1 / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"]).sum()
         )
         mask_c0 = (df_main["data"].values == ds) & (df_main["model"].isin(cols_c0))
         mask_c1 = (df_main["data"].values == ds) & (~df_main["model"].isin(cols_c0))

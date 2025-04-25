@@ -19,11 +19,13 @@ def calc_stats(
     total_samples = len(texts)
 
     for text in tqdm(texts):
+        text_words = 0
         text_chars = 0
         text_tokens = tokenizer.encode(text)
         sentences = sent_tokenize(text)
         for sentence in sentences:
             words = word_tokenize(sentence)
+            text_words += len(words)
             text_chars += sum([len(word) for word in words])
 
         total_sentences += len(sentences)
@@ -31,7 +33,7 @@ def calc_stats(
         total_chars += text_chars
         total_tokens += len(text_tokens)
 
-        results.append([len(sentences), len(words), text_chars, len(text_tokens)])
+        results.append([len(sentences), text_words, text_chars, len(text_tokens)])
     return (
         results,
         total_samples,
