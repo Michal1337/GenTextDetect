@@ -2,6 +2,7 @@ import os
 import re
 import statistics
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 from typing import Callable, Dict, List, Union
 
 import nltk
@@ -9,12 +10,10 @@ import numpy as np
 import pandas as pd
 import spacy
 import textstat
-import torch
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 from scipy.stats import entropy
 from tqdm import tqdm
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 from params import (DATA_AI_PATH, DATA_HUMAN_PATH, FEATURES_PATH,
                     FEATURES_STATS_PATH)
@@ -194,13 +193,10 @@ def extract_features_single_text(text: str) -> Dict[str, Union[int, float]]:
     return features
 
 
-def calc_features(texts: List[str]) -> pd.DataFrame:
-    results = []
-    for text in tqdm(texts):
-        features = extract_features_single_text(text)
-        results.append(features)
-
-    df = pd.DataFrame(results)
+def calc_features(texts: List[str], max_workers: int = 8) -> pd.DataFrame:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        features_list = list(tqdm(executor.map(extract_features_single_text, texts), total=len(texts)))
+    df = pd.DataFrame(features_list)
     return df
 
 
@@ -248,7 +244,7 @@ if __name__ == "__main__":
         percentile(0.8),
         percentile(0.9),
     ]
-    paths = get_csv_paths(DATA_HUMAN_PATH)
+    paths = get_csv_paths(DATA_HUMAN_PATH) + get_csv_paths(DATA_AI_PATH, recursive=True)
 
     for path in paths:
         print(f"Processing {path}...")
