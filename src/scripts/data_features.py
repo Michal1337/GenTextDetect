@@ -272,9 +272,10 @@ if __name__ == "__main__":
         percentile(0.8),
         percentile(0.9),
     ]
-    paths = get_csv_paths(DATA_HUMAN_PATH) + get_csv_paths(DATA_AI_PATH, recursive=True)
+    paths = get_csv_paths(DATA_HUMAN_PATH)
 
     for path in paths:
+        print(f"Processing {path}...")
         if path.split("_")[-1] == "human.csv":
             features_path = os.path.join(
                 FEATURES_PATH,

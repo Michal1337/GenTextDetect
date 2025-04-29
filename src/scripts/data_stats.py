@@ -29,7 +29,7 @@ def calc_stats(
             text_chars += sum([len(word) for word in words])
 
         total_sentences += len(sentences)
-        total_words += len(words)
+        total_words += text_words
         total_chars += text_chars
         total_tokens += len(text_tokens)
 
@@ -63,6 +63,7 @@ if __name__ == "__main__":
         )
 
     for path in paths:
+        print(f"Processing {path}...")
         if path.split("_")[-1] == "human.csv":
             stats_path = os.path.join(
                 STATS_PATH,
