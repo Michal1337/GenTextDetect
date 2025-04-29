@@ -28,11 +28,6 @@ nltk.download("stopwords")
 # Load SpaCy model for syntactic features
 nlp = spacy.load("en_core_web_sm")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-_ppl_model = GPT2LMHeadModel.from_pretrained("gpt2")
-_ppl_tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-_ppl_model.to(device)
-
 
 def d_metric(string: str) -> float:
     string_list = string.split()
@@ -133,24 +128,6 @@ def discourse_features(text: str) -> Dict[str, Union[int, float]]:
     }
 
 
-def statistical_features(text: str) -> Dict[str, Union[float, None]]:
-    # Perplexity and burstiness
-    def _ppl(sent: str):
-        if _ppl_model is None:
-            return None
-        enc = _ppl_tokenizer(sent, return_tensors="pt")
-        enc = {k: v.to(device) for k, v in enc.items()}
-        loss = _ppl_model(**enc, labels=enc["input_ids"]).loss.item()
-        return float(torch.exp(loss))
-
-    sentences = sent_tokenize(text)
-    ppvals = [_ppl(s) for s in sentences if _ppl(s) is not None]
-    return {
-        "perplexity": _ppl(text) if _ppl_model else None,
-        "burstiness": statistics.pstdev(ppvals) if len(ppvals) > 1 else 0,
-    }
-
-
 def repetition_features(text: str) -> Dict[str, float]:
     tokens = [w.lower() for w in word_tokenize(text)]
 
@@ -211,7 +188,6 @@ def extract_features_single_text(text: str) -> Dict[str, Union[int, float]]:
     features.update(readability_features(text))
     features.update(stylometric_features(text))
     features.update(discourse_features(text))
-    features.update(statistical_features(text))
     features.update(repetition_features(text))
     features.update(syntactic_features(text))
     features.update(cohesion_features(text))
