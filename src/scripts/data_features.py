@@ -1,16 +1,20 @@
 import os
+import re
+import statistics
 from collections import Counter
-from typing import Callable, List, Union
+from typing import Callable, Dict, List, Union
 
 import nltk
 import numpy as np
 import pandas as pd
 import spacy
 import textstat
+import torch
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 from scipy.stats import entropy
 from tqdm import tqdm
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 from params import (DATA_AI_PATH, DATA_HUMAN_PATH, FEATURES_PATH,
                     FEATURES_STATS_PATH)
@@ -24,77 +28,96 @@ nltk.download("stopwords")
 # Load SpaCy model for syntactic features
 nlp = spacy.load("en_core_web_sm")
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+_ppl_model = GPT2LMHeadModel.from_pretrained("gpt2")
+_ppl_tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+_ppl_model.to(device)
 
-def lexical_features(text):
+
+def d_metric(string: str) -> float:
+    string_list = string.split()
+    counts = np.unique(string_list, return_counts=True)[1]
+    numerator = np.sum(counts*(counts-1))
+    n = len(string_list)
+    denominator = n*(n-1)
+    return numerator/denominator
+
+def lexical_features(text: str) -> Dict[str, Union[int, float]]:
     words = word_tokenize(text)
     sentences = sent_tokenize(text)
     stop_words = set(stopwords.words("english"))
     unique_words = set(words)
-
-    features = {
+    return {
         "word_count": len(words),
-        "character_count": sum(len(word) for word in words),
-        "average_word_length": sum(len(word) for word in words) / len(words),
+        "character_count": sum(len(w) for w in words),
+        "average_word_length": sum(len(w) for w in words) / len(words) if words else 0,
         "sentence_count": len(sentences),
-        "unique_words_ratio": len(unique_words) / len(words),
-        "stopword_ratio": len([word for word in words if word.lower() in stop_words])
-        / len(words),
+        "TTR": len(unique_words) / len(words) if words else 0,
+        "RTTR": np.sqrt(len(unique_words)) / len(words) if words else 0,
+        "CTTR": len(unique_words) / ((len(words)*2) ** 0.5) if words else 0,
+        "DMetric": d_metric(text),
+        "Mass": (np.log10(len(words)) - np.log10(len(unique_words))) / (np.log10(len(words))**2),
+        "stopword_ratio": len([w for w in words if w.lower() in stop_words]) / len(words) if words else 0,
     }
-    return features
 
 
-def nlp_features(text):
+def nlp_features(text: str) -> Dict[str, Union[int, float]]:
     doc = nlp(text)
-    pos_counts = Counter([token.pos_ for token in doc])
-    entities = [(ent.text, ent.label_) for ent in doc.ents]
+    pos_counts = Counter(token.pos_ for token in doc)
+    entities = list(doc.ents)
     sentiment_scores = [token.sentiment for token in doc if token.sentiment != 0]
-
-    features = {
-        "noun_ratio": pos_counts.get("NOUN", 0) / len(doc),
-        "verb_ratio": pos_counts.get("VERB", 0) / len(doc),
-        "adjective_ratio": pos_counts.get("ADJ", 0) / len(doc),
-        "average_sentence_length": sum(len(sent.text.split()) for sent in doc.sents)
-        / len(list(doc.sents)),
+    return {
+        "noun_ratio": pos_counts.get("NOUN", 0) / len(doc) if doc else 0,
+        "verb_ratio": pos_counts.get("VERB", 0) / len(doc) if doc else 0,
+        "adjective_ratio": pos_counts.get("ADJ", 0) / len(doc) if doc else 0,
+        "average_sentence_length": (
+            sum(len(sent.text.split()) for sent in doc.sents) / len(list(doc.sents))
+            if list(doc.sents)
+            else 0
+        ),
+        "std_sentence_length": (
+            statistics.pstdev([len(sent.text.split()) for sent in doc.sents])
+            if list(doc.sents)
+            else 0
+        ),
         "entity_count": len(entities),
-        "syntactic_depth": max([len(list(token.ancestors)) for token in doc] or [0]),
-        "dependency_distance": np.mean(
-            [abs(token.head.i - token.i) for token in doc if token.head != token]
+        "syntactic_depth": max(
+            (len(list(token.ancestors)) for token in doc), default=0
+        ),
+        "dependency_distance": (
+            np.mean(
+                [abs(token.head.i - token.i) for token in doc if token.head != token]
+            )
+            if doc
+            else 0
         ),
         "average_sentiment_score": np.mean(sentiment_scores) if sentiment_scores else 0,
         "sentiment_variability": (
             np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0
         ),
     }
-    return features
 
 
-def readability_features(text):
-    features = {
+def readability_features(text: str) -> Dict[str, float]:
+    return {
         "flesch_reading_ease": textstat.flesch_reading_ease(text),
         "gunning_fog_index": textstat.gunning_fog(text),
         "smog_index": textstat.smog_index(text),
         "automated_readability_index": textstat.automated_readability_index(text),
         "dale_chall_readability": textstat.dale_chall_readability_score(text),
     }
-    return features
 
 
-def stylometric_features(text):
-    words = word_tokenize(text)
-    bigrams = list(nltk.bigrams(words))
-    trigrams = list(nltk.trigrams(words))
-
-    features = {
-        "bigram_count": len(bigrams),
-        "trigram_count": len(trigrams),
+def stylometric_features(text: str) -> Dict[str, Union[int, float]]:
+    words = word_tokenize(text.lower())
+    return {
         "punctuation_count": sum(1 for char in text if char in ".,;!?"),
         "entropy_score": entropy(list(Counter(words).values())),
     }
-    return features
 
 
-def discourse_features(text):
-    discourse_markers = {
+def discourse_features(text: str) -> Dict[str, Union[int, float]]:
+    markers = {
         "however",
         "therefore",
         "moreover",
@@ -103,22 +126,95 @@ def discourse_features(text):
         "on the other hand",
     }
     words = word_tokenize(text)
-    marker_count = sum(1 for word in words if word.lower() in discourse_markers)
-
-    features = {
-        "discourse_marker_count": marker_count,
-        "discourse_marker_ratio": marker_count / len(words) if len(words) > 0 else 0,
+    count = sum(1 for w in words if w.lower() in markers)
+    return {
+        "discourse_marker_count": count,
+        "discourse_marker_ratio": count / len(words) if words else 0,
     }
-    return features
 
 
-def extract_features_single_text(text):
+def statistical_features(text: str) -> Dict[str, Union[float, None]]:
+    # Perplexity and burstiness
+    def _ppl(sent: str):
+        if _ppl_model is None:
+            return None
+        enc = _ppl_tokenizer(sent, return_tensors="pt")
+        enc = {k: v.to(device) for k, v in enc.items()}
+        loss = _ppl_model(**enc, labels=enc["input_ids"]).loss.item()
+        return float(torch.exp(loss))
+
+    sentences = sent_tokenize(text)
+    ppvals = [_ppl(s) for s in sentences if _ppl(s) is not None]
+    return {
+        "perplexity": _ppl(text) if _ppl_model else None,
+        "burstiness": statistics.pstdev(ppvals) if len(ppvals) > 1 else 0,
+    }
+
+
+def repetition_features(text: str) -> Dict[str, float]:
+    tokens = [w.lower() for w in word_tokenize(text)]
+
+    def _ngram(n):
+        ngrams = list(zip(*(tokens[i:] for i in range(n))))
+        return 1 - len(set(ngrams)) / len(ngrams) if ngrams else 0
+
+    freq = Counter(tokens)
+    hapax = sum(1 for w, c in freq.items() if c == 1)
+    return {
+        "bigram_repetition_ratio": _ngram(2),
+        "trigram_repetition_ratio": _ngram(3),
+        "hapax_legomena_ratio": hapax / len(tokens) if tokens else 0,
+    }
+
+
+def syntactic_features(text: str) -> Dict[str, int]:
+    return {
+        "present_participle_count": sum(
+            1 for w in word_tokenize(text) if w.lower().endswith("ing")
+        ),
+        "passive_voice_count": len(
+            re.findall(
+                r"\b(was|were|is|are|been|being)\s+\w+ed\b", text, flags=re.IGNORECASE
+            )
+        ),
+    }
+
+
+def cohesion_features(text: str) -> Dict[str, int]:
+    text_l = text.lower()
+    return {
+        "conjunction_count": sum(
+            text_l.count(w)
+            for w in [" and ", " or ", " but ", " however ", " because ", " therefore "]
+        ),
+        "pronoun_count": sum(
+            text_l.count(p)
+            for p in [" i ", " you ", " he ", " she ", " they ", " we ", " it "]
+        ),
+        "contraction_count": sum(
+            len(re.findall(p, text))
+            for p in [
+                r"\b\w+n't\b",
+                r"\b\w+'re\b",
+                r"\b\w+'ve\b",
+                r"\b\w+'ll\b",
+                r"\b\w+'d\b",
+            ]
+        ),
+    }
+
+
+def extract_features_single_text(text: str) -> Dict[str, Union[int, float]]:
     features = {}
     features.update(lexical_features(text))
     features.update(nlp_features(text))
     features.update(readability_features(text))
     features.update(stylometric_features(text))
     features.update(discourse_features(text))
+    features.update(statistical_features(text))
+    features.update(repetition_features(text))
+    features.update(syntactic_features(text))
+    features.update(cohesion_features(text))
     return features
 
 
