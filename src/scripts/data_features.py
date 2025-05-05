@@ -15,8 +15,7 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 from scipy.stats import entropy
 from tqdm import tqdm
 
-from params import (DATA_AI_PATH, DATA_HUMAN_PATH, FEATURES_PATH,
-                    FEATURES_STATS_PATH)
+from params import DATA_AI_PATH, DATA_HUMAN_PATH, FEATURES_PATH, FEATURES_STATS_PATH
 from utils import get_csv_paths
 
 # Download necessary NLTK data
@@ -31,10 +30,11 @@ nlp = spacy.load("en_core_web_sm")
 def d_metric(string: str) -> float:
     string_list = string.split()
     counts = np.unique(string_list, return_counts=True)[1]
-    numerator = np.sum(counts*(counts-1))
+    numerator = np.sum(counts * (counts - 1))
     n = len(string_list)
-    denominator = n*(n-1)
-    return numerator/denominator
+    denominator = n * (n - 1)
+    return numerator / denominator
+
 
 def lexical_features(text: str) -> Dict[str, Union[int, float]]:
     words = word_tokenize(text)
@@ -48,18 +48,24 @@ def lexical_features(text: str) -> Dict[str, Union[int, float]]:
         "sentence_count": len(sentences),
         "TTR": len(unique_words) / len(words) if words else 0,
         "RTTR": np.sqrt(len(unique_words)) / len(words) if words else 0,
-        "CTTR": len(unique_words) / ((len(words)*2) ** 0.5) if words else 0,
+        "CTTR": len(unique_words) / ((len(words) * 2) ** 0.5) if words else 0,
         "DMetric": d_metric(text),
-        "Mass": (np.log10(len(words)) - np.log10(len(unique_words))) / (np.log10(len(words))**2),
-        "stopword_ratio": len([w for w in words if w.lower() in stop_words]) / len(words) if words else 0,
+        "Mass": (np.log10(len(words)) - np.log10(len(unique_words)))
+        / (np.log10(len(words)) ** 2),
+        "stopword_ratio": (
+            len([w for w in words if w.lower() in stop_words]) / len(words)
+            if words
+            else 0
+        ),
     }
 
 
-def nlp_features(text: str) -> Dict[str, Union[int, float]]:
+def nlp_features(text: str) -> dict:
     doc = nlp(text)
     pos_counts = Counter(token.pos_ for token in doc)
     entities = list(doc.ents)
     sentiment_scores = [token.sentiment for token in doc if token.sentiment != 0]
+    distances = [abs(token.head.i - token.i) for token in doc if token.head != token]
     return {
         "noun_ratio": pos_counts.get("NOUN", 0) / len(doc) if doc else 0,
         "verb_ratio": pos_counts.get("VERB", 0) / len(doc) if doc else 0,
@@ -78,13 +84,7 @@ def nlp_features(text: str) -> Dict[str, Union[int, float]]:
         "syntactic_depth": max(
             (len(list(token.ancestors)) for token in doc), default=0
         ),
-        "dependency_distance": (
-            np.mean(
-                [abs(token.head.i - token.i) for token in doc if token.head != token]
-            )
-            if doc
-            else 0
-        ),
+        "dependency_distance": np.mean(distances) if distances else 0,
         "average_sentiment_score": np.mean(sentiment_scores) if sentiment_scores else 0,
         "sentiment_variability": (
             np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0
@@ -195,7 +195,9 @@ def extract_features_single_text(text: str) -> Dict[str, Union[int, float]]:
 
 def calc_features(texts: List[str], max_workers: int = 8) -> pd.DataFrame:
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        features_list = list(tqdm(executor.map(extract_features_single_text, texts), total=len(texts)))
+        features_list = list(
+            tqdm(executor.map(extract_features_single_text, texts), total=len(texts))
+        )
     df = pd.DataFrame(features_list)
     return df
 
