@@ -23,6 +23,7 @@ from models import BaselineClassifier
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
+torch.set_float32_matmul_precision('high')
 
 
 if __name__ == "__main__":
@@ -39,6 +40,7 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
     tokenizer.pad_token = "<|finetune_right_pad_id|>"
+    tokenizer.padding_side  = 'left'
 
     df_train = pd.read_csv(ds_train_path)
     df_val = pd.read_csv(ds_val_path)
@@ -52,6 +54,7 @@ if __name__ == "__main__":
     ddp_world_size = int(os.environ["WORLD_SIZE"])
 
     device = f"cuda:{ddp_local_rank}"
+    device_type = "cuda"
     torch.cuda.set_device(device)
     master_process = ddp_rank == 0
     print(f"World Size: {ddp_world_size}, Local Rank: {ddp_local_rank}")
@@ -98,7 +101,7 @@ if __name__ == "__main__":
     raw_model = model.module
 
     loss_fn = BCEWithLogitsLoss()
-    optimizer = AdamW(model.parameters(), lr=3e-4)
+    optimizer = AdamW(model.parameters(), lr=3e-4, fused=True)
 
     best_val_acc = -1
 
@@ -147,18 +150,21 @@ if __name__ == "__main__":
         for batch in progress:
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
+            print(input_ids.shape, labels.shape)
 
             optimizer.zero_grad()
-            outputs = model(input_ids)
+            with torch.autocast(device_type=device_type, dtype=torch.bfloat16):
+                outputs = model(input_ids)
 
-            mask = labels.view(-1) != -100
-            labels = labels.view(-1)[mask].float()
-            outputs = outputs.view(-1)[mask]
+                mask = labels.view(-1) != -100
+                labels = labels.view(-1)[mask].float()
+                outputs = outputs.view(-1)[mask]
+                loss = loss_fn(outputs, labels)
 
-            loss = loss_fn(outputs, labels)
             loss.backward()
             optimizer.step()
-
+            
+            torch.cuda.synchronize()
             epoch_loss += loss.item()
             progress.set_description(f"Loss: {loss.item():.4f}")
 

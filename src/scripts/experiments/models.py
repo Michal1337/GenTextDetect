@@ -6,7 +6,9 @@ from transformers import AutoModel
 class FineTuneClassifier(nn.Module):
     def __init__(self, base_model_path: str, num_labels: int) -> None:
         super(FineTuneClassifier, self).__init__()
-        self.base_model = AutoModel.from_pretrained(base_model_path)
+        self.base_model = AutoModel.from_pretrained(base_model_path,  
+                                                    torch_dtype=torch.bfloat16,
+                                                    attn_implementation="flash_attention_2")
 
         for param in self.base_model.parameters():
             param.requires_grad = False
@@ -25,10 +27,11 @@ class FineTuneClassifier(nn.Module):
         self, input_ids: torch.tensor, attention_mask: torch.tensor
     ) -> torch.tensor:
         outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
-        B, T, C = outputs.logits.shape
 
-        all_tokens_hidden = outputs.logits  # (B, T, C)
-        last_token_hidden = outputs.logits[:, -1, :]  # (B, C)
+        B, T, C = outputs.last_hidden_state.shape
+        print(f"outputs.last_hidden_state: {outputs.last_hidden_state.shape}")
+        all_tokens_hidden = outputs.last_hidden_state  # (B, T, C)
+        last_token_hidden = outputs.last_hidden_state[:, -1, :]  # (B, C)
         last_token_hidden = last_token_hidden.unsqueeze(1).expand(B, T, C)
 
         combined_representation = torch.cat(
@@ -54,6 +57,7 @@ class BaselineClassifier(nn.Module):
         self.token_embedding = nn.Embedding(
             vocab_size, d_model, padding_idx=pad_token_id
         )
+        
         self.pos_embedding = nn.Embedding(max_seq_length, d_model)
         decoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model, nhead=nhead, batch_first=True

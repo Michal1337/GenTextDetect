@@ -1,7 +1,7 @@
 import argparse
 import csv
 import os
-
+import time
 import pandas as pd
 import torch
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
@@ -23,7 +23,7 @@ from models import FineTuneClassifier
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
-
+torch.set_float32_matmul_precision('high')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train the baseline model.")
@@ -34,17 +34,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_name = args.model_path.split("/")[-1]
-    ds_train_path = f"{DATASETS_PATH}/{args.dataset_size}/train.csv"
-    ds_val_path = f"{DATASETS_PATH}/{args.dataset_size}/val.csv"
+    ds_train_path = f"{DATASETS_PATH}/{args.dataset_name}/train.csv"
+    ds_val_path = f"{DATASETS_PATH}/{args.dataset_name}/val.csv"
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     if model_name in PAD_TOKENS.keys():
         tokenizer.pad_token = PAD_TOKENS[model_name]
-
+    tokenizer.padding_side  = 'left'
+    
     df_train = pd.read_csv(ds_train_path)
     df_val = pd.read_csv(ds_val_path)
-    train_dataset = TextDataset(df_train["text"].tolist(), df_train["label"].tolist())
-    val_dataset = TextDataset(df_val["text"].tolist(), df_val["label"].tolist())
+    train_dataset = TextDataset(df_train["text"].tolist(), df_train["label"].tolist(), tokenizer)
+    val_dataset = TextDataset(df_val["text"].tolist(), df_val["label"].tolist(), tokenizer)
 
     init_process_group(backend="nccl")
 
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     ddp_world_size = int(os.environ["WORLD_SIZE"])
 
     device = f"cuda:{ddp_local_rank}"
+    device_type = "cuda"
     torch.cuda.set_device(device)
     master_process = ddp_rank == 0
     print(f"World Size: {ddp_world_size}, Local Rank: {ddp_local_rank}")
@@ -68,7 +70,7 @@ if __name__ == "__main__":
         train_dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch, tokenizer),
+        collate_fn=lambda batch: collate_fn(batch),
         sampler=train_sampler,
         num_workers=4,
         pin_memory=True,
@@ -80,21 +82,21 @@ if __name__ == "__main__":
             val_dataset,
             batch_size=args.batch_size,
             shuffle=False,
-            collate_fn=lambda batch: collate_fn(batch, tokenizer),
+            collate_fn=lambda batch: collate_fn(batch),
         )
 
     model = FineTuneClassifier(
-        base_model=args.model_path,
+        base_model_path=args.model_path,
         num_labels=1,
     )
-
+    print(f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     model.to(device)
-    model = torch.compile(model)
+    #model = torch.compile(model, dynamic=True)
     model = DDP(model, device_ids=[ddp_local_rank])
     raw_model = model.module
 
     loss_fn = BCEWithLogitsLoss()
-    optimizer = AdamW(model.parameters(), lr=3e-4)
+    optimizer = AdamW(model.parameters(), lr=3e-4, fused=True)
 
     best_val_acc = -1
 
@@ -144,22 +146,23 @@ if __name__ == "__main__":
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
-
+            
             optimizer.zero_grad()
-            outputs = model(input_ids, attention_mask)
+            with torch.autocast(device_type=device_type, dtype=torch.bfloat16):
+                outputs = model(input_ids, attention_mask)
 
-            mask = labels.view(-1) != -100
-            labels = labels.view(-1)[mask].float()
-            outputs = outputs.view(-1)[mask]
-
-            loss = loss_fn(outputs, labels)
+                mask = labels.view(-1) != -100
+                labels = labels.view(-1)[mask].float()
+                outputs = outputs.view(-1)[mask]
+                loss = loss_fn(outputs, labels)
+            
             loss.backward()
             optimizer.step()
-
+            
+            torch.cuda.synchronize()
             epoch_loss += loss.item()
             progress.set_description(f"Loss: {loss.item():.4f}")
 
-            # Collect predictions during training
             logits = torch.sigmoid(outputs).squeeze().detach().cpu()
             labels_cpu = labels.squeeze().cpu()
             bin_preds = (logits >= 0.5).long()
@@ -170,7 +173,7 @@ if __name__ == "__main__":
 
         avg_loss = epoch_loss / len(train_loader)
 
-        if master_process:
+        if master_process:            
             train_metrics = {
                 "accuracy": accuracy_score(all_labels, all_bin_preds),
                 "balanced_accuracy": balanced_accuracy_score(all_labels, all_bin_preds),
@@ -179,7 +182,7 @@ if __name__ == "__main__":
                 "f1": f1_score(all_labels, all_bin_preds),
                 "auc": roc_auc_score(all_labels, all_logits),
             }
-
+            
             val_metrics = evaluate(model, val_loader, device, "finetune")
 
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")

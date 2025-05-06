@@ -9,25 +9,6 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 
 
-class TextDataset(Dataset):
-    def __init__(self, texts: List[str], labels: List[int]) -> None:
-        """
-        texts: list of texts.
-        labels: list of labels for all samples.
-        """
-        self.texts = texts
-        self.labels = labels
-
-    def __len__(self) -> int:
-        return len(self.texts)
-
-    def __getitem__(self, idx: int) -> Dict[str, Union[str, int]]:
-        text = self.texts[idx]
-        label = self.labels[idx]
-
-        return {"text": text, "label": label}
-
-
 def get_csv_paths(folder_path: str, recursive: bool = False) -> List[str]:
     if recursive:
         # Walk through all subdirectories
@@ -46,6 +27,24 @@ def get_csv_paths(folder_path: str, recursive: bool = False) -> List[str]:
         ]
 
     return file_paths
+
+class TextDataset(Dataset):
+    def __init__(self, texts: List[str], labels: List[int]) -> None:
+        """
+        texts: list of texts.
+        labels: list of labels for all samples.
+        """
+        self.texts = texts
+        self.labels = labels
+
+    def __len__(self) -> int:
+        return len(self.texts)
+
+    def __getitem__(self, idx: int) -> Dict[str, Union[str, int]]:
+        text = self.texts[idx]
+        label = self.labels[idx]
+
+        return {"text": text, "label": label}
 
 
 def collate_fn(

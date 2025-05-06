@@ -21,30 +21,34 @@ PAD_TOKENS: Dict[str, str] = {
     "Ministral-8B-Instruct-2410": "<pad>",
 }
 
-BASELINE_MODELS: Dict[str, Dict[str, int]] = {
+BASELINE_MODELS: Dict[str, Dict[str, Union[int, float]]] = {
     "mini": {
         "d_model": 64,
         "num_layers": 4,
         "num_heads": 4,
         "max_len": 16_384,
+        "start_lr": 1e-3,
     },
     "small": {
         "d_model": 510,
         "num_layers": 8,
         "num_heads": 6,
-        "max_len": 16_384,
+        "max_len": 1e-3,
+        "start_lr":
     },
     "medium": {
-        "d_model": 1344,
+        "d_model":768,
+        "num_layers": 12,
+        "num_heads": 12,
+        "max_len": 16_384,
+        "start_lr": 6e-4
+    },
+    "large": {
+        "d_model": 1024,
         "num_layers": 24,
         "num_heads": 16,
         "max_len": 16_384,
-    },
-    "large": {
-        "d_model": 1824,
-        "num_layers": 36,
-        "num_heads": 24,
-        "max_len": 16_384,
+        "start_lr": 3e-4
     },
 }
 
