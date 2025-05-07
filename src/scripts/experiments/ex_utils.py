@@ -7,7 +7,7 @@ from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
 from torch.nn import BCEWithLogitsLoss
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
-
+from tqdm import tqdm
 
 def get_csv_paths(folder_path: str, recursive: bool = False) -> List[str]:
     if recursive:
@@ -53,7 +53,7 @@ def collate_fn(
     texts = [item["text"] for item in batch]
     labels = [item["label"] for item in batch]
     encodings = tokenizer(
-        texts, truncation=True, padding="longest", return_tensors="pt"
+        texts, truncation=True, padding="max_length", return_tensors="pt", max_length = 8192
     )
 
     labels_padded = [
@@ -75,7 +75,7 @@ def evaluate(
     loss_fn = BCEWithLogitsLoss()
 
     with torch.no_grad():
-        for batch in dataloader:
+        for batch in tqdm(dataloader, desc="Evaluating"):
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
 
@@ -103,6 +103,10 @@ def evaluate(
             targets.extend(labels)
 
     bin_preds = [1 if p >= 0.5 else 0 for p in preds]
+
+    # print(preds)
+    # print("--------")
+    # print(targets)
 
     metrics = {
         "loss": total_loss / len(dataloader),

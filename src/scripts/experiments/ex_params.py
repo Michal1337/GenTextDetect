@@ -23,31 +23,31 @@ PAD_TOKENS: Dict[str, str] = {
 
 BASELINE_MODELS: Dict[str, Dict[str, Union[int, float]]] = {
     "mini": {
-        "d_model": 64,
+        "d_model": 324,
         "num_layers": 4,
         "num_heads": 4,
-        "max_len": 16_384,
+        "max_len": 8192,
         "start_lr": 1e-3,
     },
     "small": {
-        "d_model": 510,
+        "d_model": 546,
         "num_layers": 8,
         "num_heads": 6,
-        "max_len": 1e-3,
-        "start_lr":
+        "max_len": 8192,
+        "start_lr": 1e-3,
     },
     "medium": {
-        "d_model":768,
+        "d_model": 768,
         "num_layers": 12,
         "num_heads": 12,
-        "max_len": 16_384,
+        "max_len": 8192,
         "start_lr": 6e-4
     },
     "large": {
         "d_model": 1024,
         "num_layers": 24,
         "num_heads": 16,
-        "max_len": 16_384,
+        "max_len": 8192,
         "start_lr": 3e-4
     },
 }
@@ -57,22 +57,22 @@ NUM_TOKENS_DETECT_LLM_FAMILY: int = 100_000_000
 
 DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
     "master-testset": {
-        "num_tokens": 1_000_000,
+        "num_tokens": 100_000_000,
         "cols_c0": ["human"],
         "reverse_labels": False,
     },
     "master-mini": {
-        "num_tokens": 100_000,
+        "num_tokens": 10_000_000,
         "cols_c0": ["human"],
         "reverse_labels": False,
     },
     "master-small": {
-        "num_tokens": 1_000_000,
+        "num_tokens": 20_000_000,
         "cols_c0": ["human"],
         "reverse_labels": False,
     },
     "master-medium": {
-        "num_tokens": 10_000_000,
+        "num_tokens": 50_000_000,
         "cols_c0": ["human"],
         "reverse_labels": False,
     },
@@ -227,4 +227,87 @@ DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
         "cols_c0": ["Falcon3-7B-Instruct", "Falcon3-3B-Instruct"],
         "reverse_labels": True,
     },
+}
+
+TRAINING_CONFIG: Dict[str, Dict[str, Union[int, float]]] = {
+    "Llama-3.1-8B-Instruct": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Meta-Llama-3.1-70B-Instruct-AWQ-INT4": {
+        "start_lr": 1e-4,
+        "total_batch_size": 16
+    },
+    "Llama-3.2-3B-Instruct": {
+        "start_lr": 5e-4,
+        "total_batch_size": 128
+    },
+    "Meta-Llama-3.3-70B-Instruct-AWQ-INT4": {
+        "start_lr": 1e-4,
+        "total_batch_size": 16
+    },
+    "Phi-3-mini-128k-instruct": {
+        "start_lr": 3e-4,
+        "total_batch_size": 128
+    },
+    "Phi-3-small-128k-instruct": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Phi-3-medium-128k-instruct": {
+        "start_lr": 1e-4,
+        "total_batch_size": 32
+    },
+    "Phi-3.5-mini-instruct": {
+        "start_lr": 3e-4,
+        "total_batch_size": 128
+    },
+    "Phi-4-mini-instruct": {
+        "start_lr": 3e-4,
+        "total_batch_size": 128
+    },
+    "phi-4": {
+        "start_lr": 1e-4,
+        "total_batch_size": 32
+    },
+    "Mistral-Nemo-Instruct-2407": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Ministral-8B-Instruct-2410": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Qwen2-72B-Instruct-AWQ": {
+        "start_lr": 1e-4,
+        "total_batch_size": 16
+    },
+    "Qwen2-7B-Instruct": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Qwen2.5-72B-Instruct-AWQ": {
+        "start_lr": 1e-4,
+        "total_batch_size": 16
+    },
+    "Qwen2.5-14B-Instruct": {
+        "start_lr": 1e-4,
+        "total_batch_size": 32
+    },
+    "Qwen2.5-7B-Instruct": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Qwen2.5-3B-Instruct": {
+        "start_lr": 5e-4,
+        "total_batch_size": 128
+    },
+    "Falcon3-7B-Instruct": {
+        "start_lr": 2e-4,
+        "total_batch_size": 64
+    },
+    "Falcon3-3B-Instruct": {
+        "start_lr": 5e-4,
+        "total_batch_size": 128
+    }
 }

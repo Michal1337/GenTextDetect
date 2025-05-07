@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from transformers import AutoModel
+from transformers import AutoModel, AutoModelForCausalLM
 
 
 class FineTuneClassifier(nn.Module):
@@ -8,7 +8,8 @@ class FineTuneClassifier(nn.Module):
         super(FineTuneClassifier, self).__init__()
         self.base_model = AutoModel.from_pretrained(base_model_path,  
                                                     torch_dtype=torch.bfloat16,
-                                                    attn_implementation="flash_attention_2")
+                                                    attn_implementation="flash_attention_2",
+                                                    trust_remote_code=True)
 
         for param in self.base_model.parameters():
             param.requires_grad = False
@@ -29,7 +30,6 @@ class FineTuneClassifier(nn.Module):
         outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
 
         B, T, C = outputs.last_hidden_state.shape
-        print(f"outputs.last_hidden_state: {outputs.last_hidden_state.shape}")
         all_tokens_hidden = outputs.last_hidden_state  # (B, T, C)
         last_token_hidden = outputs.last_hidden_state[:, -1, :]  # (B, C)
         last_token_hidden = last_token_hidden.unsqueeze(1).expand(B, T, C)
@@ -40,6 +40,49 @@ class FineTuneClassifier(nn.Module):
         logits = self.classifier(combined_representation)
         return logits
 
+
+class FineTuneClassifierPhi(nn.Module):
+    def __init__(self, base_model_path: str, num_labels: int) -> None:
+        super(FineTuneClassifierPhi, self).__init__()
+        self.base_model_path = base_model_path
+        self.base_model = AutoModelForCausalLM.from_pretrained( 
+                                        base_model_path,
+                                        torch_dtype=torch.bfloat16,
+                                        attn_implementation="flash_attention_2",
+                                        trust_remote_code=True)
+        print(type(self.base_model))
+
+        for param in self.base_model.parameters():
+            param.requires_grad = False
+
+        self.classifier = nn.Linear(self.base_model.config.hidden_size * 2, num_labels)
+
+    @classmethod
+    def from_classifier_head(
+        cls, base_model_path: str, path: str, num_labels: int
+    ) -> nn.Module:
+        model = cls(base_model_path, num_labels)
+        model.classifier.load_state_dict(torch.load(path))
+        return model
+
+    def forward(
+        self, input_ids: torch.tensor, attention_mask: torch.tensor
+    ) -> torch.tensor:
+        if "phi-4" in self.base_model_path.lower():
+            outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True, output_attentions=False, return_dict=True, use_cache=True, logits_to_keep=1)
+        else:
+            outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True, output_attentions=False, return_dict=True, use_cache=False)
+
+        B, T, C = outputs.hidden_states[-1].shape 
+        all_tokens_hidden = outputs.hidden_states[-1]  # (B, T, C)
+        last_token_hidden = outputs.hidden_states[-1][:, -1, :]  # (B, C)
+        last_token_hidden = last_token_hidden.unsqueeze(1).expand(B, T, C)
+
+        combined_representation = torch.cat(
+            (all_tokens_hidden, last_token_hidden), dim=-1
+        )
+        logits = self.classifier(combined_representation)
+        return logits
 
 class BaselineClassifier(nn.Module):
     def __init__(
@@ -78,10 +121,8 @@ class BaselineClassifier(nn.Module):
             diagonal=1,
         )
 
-        pad_mask = token_ids.eq(self.pad_token_id)  # shape: (batch_size, seq_len)
-
         output = self.transformer(
-            embeddings, mask=causal_mask, src_key_padding_mask=pad_mask
+            embeddings, mask=causal_mask
         )
 
         B, T, C = output.shape

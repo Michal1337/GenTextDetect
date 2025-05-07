@@ -1,24 +1,23 @@
 import argparse
+import time
 import csv
 import os
 import time
 import pandas as pd
 import torch
-from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
-                             precision_score, recall_score, roc_auc_score)
 from torch.distributed import destroy_process_group, init_process_group
+import torch.distributed as dist
 from torch.nn import BCEWithLogitsLoss
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, PAD_TOKENS, SEED,
-                       TRAINING_HISTORY_PATH)
+                       TRAINING_HISTORY_PATH, TRAINING_CONFIG)
 from ex_utils import TextDataset, collate_fn, evaluate
-from models import FineTuneClassifier
+from models import FineTuneClassifier, FineTuneClassifierPhi
 
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
@@ -37,15 +36,16 @@ if __name__ == "__main__":
     ds_train_path = f"{DATASETS_PATH}/{args.dataset_name}/train.csv"
     ds_val_path = f"{DATASETS_PATH}/{args.dataset_name}/val.csv"
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True)
     if model_name in PAD_TOKENS.keys():
         tokenizer.pad_token = PAD_TOKENS[model_name]
     tokenizer.padding_side  = 'left'
-    
+    config = TRAINING_CONFIG[model_name]
+
     df_train = pd.read_csv(ds_train_path)
     df_val = pd.read_csv(ds_val_path)
-    train_dataset = TextDataset(df_train["text"].tolist(), df_train["label"].tolist(), tokenizer)
-    val_dataset = TextDataset(df_val["text"].tolist(), df_val["label"].tolist(), tokenizer)
+    train_dataset = TextDataset(df_train["text"].tolist(), df_train["label"].tolist())
+    val_dataset = TextDataset(df_val["text"].tolist(), df_val["label"].tolist())
 
     init_process_group(backend="nccl")
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         train_dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch),
+        collate_fn=lambda batch: collate_fn(batch, tokenizer),
         sampler=train_sampler,
         num_workers=4,
         pin_memory=True,
@@ -82,23 +82,60 @@ if __name__ == "__main__":
             val_dataset,
             batch_size=args.batch_size,
             shuffle=False,
-            collate_fn=lambda batch: collate_fn(batch),
+            collate_fn=lambda batch: collate_fn(batch, tokenizer),
         )
 
-    model = FineTuneClassifier(
-        base_model_path=args.model_path,
-        num_labels=1,
-    )
-    print(f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+    if "phi" in model_name.lower():
+        model = FineTuneClassifierPhi(
+            base_model_path=args.model_path,
+            num_labels=1,
+        )
+    else:
+        model = FineTuneClassifier(
+            base_model_path=args.model_path,
+            num_labels=1,
+        )
+        
     model.to(device)
-    #model = torch.compile(model, dynamic=True)
+    # model = torch.compile(model)
     model = DDP(model, device_ids=[ddp_local_rank])
     raw_model = model.module
 
-    loss_fn = BCEWithLogitsLoss()
-    optimizer = AdamW(model.parameters(), lr=3e-4, fused=True)
+    total_batch_size = config["total_batch_size"]
+    B = args.batch_size
+    T = 8192
+    assert total_batch_size % (B * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * ddp_world_size"
+    grad_accum_steps = total_batch_size // (B * ddp_world_size)
 
+    max_lr = config["start_lr"]
+    min_lr = max_lr * 0.1
+    warmup_steps = len(train_loader) // grad_accum_steps
+    max_steps = 4 * len(train_loader) // grad_accum_steps
+    def get_lr(it):
+        if it < warmup_steps:
+            return max_lr * (it + 1) / warmup_steps
+
+        if it > max_steps:
+            return min_lr
+
+        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 1.0 - decay_ratio  # Linearly decays from 1 to 0
+        return min_lr + coeff * (max_lr - min_lr)
+
+    if master_process:
+        print(f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+        print(f"Dataset size: {len(train_loader)}")
+        print(f"Batch Size: {B} Grad Accumulation Steps: {grad_accum_steps}")
+        print(f"Max LR: {max_lr} Min LR: {min_lr} Warmup Steps: {warmup_steps} Max Steps: {max_steps}")
+    
+    loss_fn = BCEWithLogitsLoss()
+    optimizer = AdamW(model.parameters(), lr=get_lr(0), betas=(0.9, 0.999), fused=True)
+
+    lr = get_lr(0)
+    norm = -1
     best_val_acc = -1
+    step = 0
 
     history_path = (
         TRAINING_HISTORY_PATH
@@ -111,12 +148,6 @@ if __name__ == "__main__":
                 fieldnames=[
                     "epoch",
                     "train_loss",
-                    "train_accuracy",
-                    "train_balanced_accuracy",
-                    "train_precision",
-                    "train_recall",
-                    "train_f1",
-                    "train_auc",
                     "val_loss",
                     "val_accuracy",
                     "val_balanced_accuracy",
@@ -127,7 +158,7 @@ if __name__ == "__main__":
                 ],
             )
             writer.writeheader()
-
+    
     for epoch in range(args.epochs):
         train_sampler.set_epoch(epoch)
 
@@ -136,18 +167,14 @@ if __name__ == "__main__":
 
         model.train()
         epoch_loss = 0.0
-        progress = tqdm(train_loader, disable=not master_process)
 
-        all_logits = []
-        all_labels = []
-        all_bin_preds = []
-
-        for batch in progress:
+        optimizer.zero_grad()
+        loss_accum = 0.0
+        for micro_step, batch in enumerate(train_loader, start=1):
+            t0 = time.time()
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
-            
-            optimizer.zero_grad()
             with torch.autocast(device_type=device_type, dtype=torch.bfloat16):
                 outputs = model(input_ids, attention_mask)
 
@@ -155,44 +182,42 @@ if __name__ == "__main__":
                 labels = labels.view(-1)[mask].float()
                 outputs = outputs.view(-1)[mask]
                 loss = loss_fn(outputs, labels)
-            
+
+            loss = loss / grad_accum_steps
+            loss_accum += loss.detach()
             loss.backward()
-            optimizer.step()
-            
-            torch.cuda.synchronize()
-            epoch_loss += loss.item()
-            progress.set_description(f"Loss: {loss.item():.4f}")
+            dist.all_reduce(loss_accum, op=dist.ReduceOp.AVG)
 
-            logits = torch.sigmoid(outputs).squeeze().detach().cpu()
-            labels_cpu = labels.squeeze().cpu()
-            bin_preds = (logits >= 0.5).long()
+            t1 = time.time()
+            dt = t1 - t0
+            tokens_processed = B * T * ddp_world_size
+            tokens_per_sec = tokens_processed / dt
+            if master_process:
+                print(f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
 
-            all_logits.extend(logits.tolist())
-            all_labels.extend(labels_cpu.tolist())
-            all_bin_preds.extend(bin_preds.tolist())
+            if micro_step % grad_accum_steps == 0 or micro_step == len(train_loader):
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                optimizer.zero_grad()
+                torch.cuda.synchronize()
+                step += 1
+                lr = get_lr(step)
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] = lr
+                epoch_loss += loss_accum.item() * grad_accum_steps
+                loss_accum = 0.0
 
         avg_loss = epoch_loss / len(train_loader)
 
         if master_process:            
-            train_metrics = {
-                "accuracy": accuracy_score(all_labels, all_bin_preds),
-                "balanced_accuracy": balanced_accuracy_score(all_labels, all_bin_preds),
-                "precision": precision_score(all_labels, all_bin_preds),
-                "recall": recall_score(all_labels, all_bin_preds),
-                "f1": f1_score(all_labels, all_bin_preds),
-                "auc": roc_auc_score(all_labels, all_logits),
-            }
-            
             val_metrics = evaluate(model, val_loader, device, "finetune")
 
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")
-            print("Train Metrics:", train_metrics)
             print("Val Metrics:", val_metrics)
 
             record = {
                 "epoch": epoch + 1,
                 "train_loss": avg_loss,
-                **{f"train_{k}": v for k, v in train_metrics.items()},
                 **{f"val_{k}": v for k, v in val_metrics.items()},
             }
 

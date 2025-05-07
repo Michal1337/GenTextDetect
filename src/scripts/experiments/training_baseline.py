@@ -1,4 +1,6 @@
 import argparse
+import time
+import math
 import csv
 import os
 
@@ -7,12 +9,12 @@ import torch
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from torch.distributed import destroy_process_group, init_process_group
+import torch.distributed as dist
 from torch.nn import BCEWithLogitsLoss
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from ex_params import (BASELINE_MODELS, CHECKPOINTS_PATH, DATASETS_PATH, SEED,
@@ -94,16 +96,47 @@ if __name__ == "__main__":
         pad_token_id=tokenizer.pad_token_id,
         num_labels=1,
     )
-
     model.to(device)
     model = torch.compile(model)
     model = DDP(model, device_ids=[ddp_local_rank])
     raw_model = model.module
 
-    loss_fn = BCEWithLogitsLoss()
-    optimizer = AdamW(model.parameters(), lr=3e-4, fused=True)
+    total_batch_size = 2**19 # 2**19, ~0.5M, in number of tokens
+    B = args.batch_size
+    T = 8192
+    assert total_batch_size % (B * T * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * T * ddp_world_size"
+    grad_accum_steps = total_batch_size // (B * T * ddp_world_size)
 
+    max_lr = model_config["start_lr"]
+    min_lr = max_lr * 0.1
+    warmup_steps = 2 * len(train_loader) // grad_accum_steps
+    max_steps = 8 * len(train_loader) // grad_accum_steps
+    def get_lr(it):
+        # 1) linear warmup for warmup_iters steps
+        if it < warmup_steps:
+            return max_lr * (it+1) / warmup_steps
+        # 2) if it > lr_decay_iters, return min learning rate
+        if it > max_steps:
+            return min_lr
+        # 3) in between, use cosine decay down to min learning rate
+        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+        return min_lr + coeff * (max_lr - min_lr)
+
+    if master_process:
+        print(f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+        print(f"Dataset size: {len(train_loader)}")
+        print(f"Batch Size: {B} Grad Accumulation Steps: {grad_accum_steps}")
+        print(f"Max LR: {max_lr} Min LR: {min_lr} Warmup Steps: {warmup_steps} Max Steps: {max_steps}")
+    
+    loss_fn = BCEWithLogitsLoss()
+    optimizer = AdamW(model.parameters(), lr=get_lr(0), betas=(0.9, 0.95), fused=True)
+
+    lr = get_lr(0)
+    norm = -1
     best_val_acc = -1
+    step = 0
 
     history_path = (
         TRAINING_HISTORY_PATH
@@ -116,12 +149,6 @@ if __name__ == "__main__":
                 fieldnames=[
                     "epoch",
                     "train_loss",
-                    "train_accuracy",
-                    "train_balanced_accuracy",
-                    "train_precision",
-                    "train_recall",
-                    "train_f1",
-                    "train_auc",
                     "val_loss",
                     "val_accuracy",
                     "val_balanced_accuracy",
@@ -141,18 +168,13 @@ if __name__ == "__main__":
 
         model.train()
         epoch_loss = 0.0
-        progress = tqdm(train_loader, disable=not master_process)
 
-        all_logits = []
-        all_labels = []
-        all_bin_preds = []
-
-        for batch in progress:
+        optimizer.zero_grad()
+        loss_accum = 0.0
+        for micro_step, batch in enumerate(train_loader, start=1):
+            t0 = time.time()
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
-            print(input_ids.shape, labels.shape)
-
-            optimizer.zero_grad()
             with torch.autocast(device_type=device_type, dtype=torch.bfloat16):
                 outputs = model(input_ids)
 
@@ -161,44 +183,41 @@ if __name__ == "__main__":
                 outputs = outputs.view(-1)[mask]
                 loss = loss_fn(outputs, labels)
 
+            loss = loss / grad_accum_steps
+            loss_accum += loss.detach()
             loss.backward()
-            optimizer.step()
-            
-            torch.cuda.synchronize()
-            epoch_loss += loss.item()
-            progress.set_description(f"Loss: {loss.item():.4f}")
+            dist.all_reduce(loss_accum, op=dist.ReduceOp.AVG)
 
-            # Collect predictions during training
-            logits = torch.sigmoid(outputs).squeeze().detach().cpu()
-            labels_cpu = labels.squeeze().cpu()
-            bin_preds = (logits >= 0.5).long()
+            t1 = time.time()
+            dt = t1 - t0
+            tokens_processed = B * T * ddp_world_size
+            tokens_per_sec = tokens_processed / dt
+            if master_process:
+                print(f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
 
-            all_logits.extend(logits.tolist())
-            all_labels.extend(labels_cpu.tolist())
-            all_bin_preds.extend(bin_preds.tolist())
+            if micro_step % grad_accum_steps == 0 or micro_step == len(train_loader):
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                optimizer.zero_grad()
+                torch.cuda.synchronize()
+                step += 1
+                lr = get_lr(step)
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] = lr
+                epoch_loss += loss_accum.item() * grad_accum_steps
+                loss_accum = 0.0
 
         avg_loss = epoch_loss / len(train_loader)
 
         if master_process:
-            train_metrics = {
-                "accuracy": accuracy_score(all_labels, all_bin_preds),
-                "balanced_accuracy": balanced_accuracy_score(all_labels, all_bin_preds),
-                "precision": precision_score(all_labels, all_bin_preds),
-                "recall": recall_score(all_labels, all_bin_preds),
-                "f1": f1_score(all_labels, all_bin_preds),
-                "auc": roc_auc_score(all_labels, all_logits),
-            }
-
             val_metrics = evaluate(model, val_loader, device, "baseline")
 
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")
-            print("Train Metrics:", train_metrics)
             print("Val Metrics:", val_metrics)
 
             record = {
                 "epoch": epoch + 1,
                 "train_loss": avg_loss,
-                **{f"train_{k}": v for k, v in train_metrics.items()},
                 **{f"val_{k}": v for k, v in val_metrics.items()},
             }
 
