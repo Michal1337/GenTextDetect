@@ -13,12 +13,18 @@ from ex_params import (
     DATASETS_PATH,
     STATS_PATH,
     SEED,
+    MAX_TEXT_LENGTH
 )
 from ex_utils import get_csv_paths
 
 np.random.seed(SEED)
-BATCH_SIZE = 256
+BATCH_SIZE = 16
 
+
+def remove_long_texts(stats: Dict[str, pd.DataFrame], max_len: int) -> Dict[str, pd.DataFrame]:
+    for k, v in stats.items():
+        stats[k] = v[v["num_tokens"] <= max_len]
+    return stats
 
 def remove_test_samples(
     stats: Dict[str, pd.DataFrame], test_idx: pd.DataFrame
@@ -178,6 +184,7 @@ if __name__ == "__main__":
     )
 
     for name, config in DATASETS.items():
+        print(f"Creating dataset {name}...")
         max_tokens, cols_c0, reverse_labels = (
             config["num_tokens"],
             config["cols_c0"],
@@ -192,6 +199,7 @@ if __name__ == "__main__":
                 for path in paths
             }
         )
+        stats = remove_long_texts(stats, MAX_TEXT_LENGTH)
         if name == "master-testset":
             df_main = get_master_stats(stats)
             df_main = calculate_probs(df_main, cols_c0)

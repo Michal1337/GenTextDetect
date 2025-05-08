@@ -8,6 +8,7 @@ from torch.nn import BCEWithLogitsLoss
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 from tqdm import tqdm
+from ex_params import MAX_TEXT_LENGTH
 
 def get_csv_paths(folder_path: str, recursive: bool = False) -> List[str]:
     if recursive:
@@ -53,7 +54,7 @@ def collate_fn(
     texts = [item["text"] for item in batch]
     labels = [item["label"] for item in batch]
     encodings = tokenizer(
-        texts, truncation=True, padding="max_length", return_tensors="pt", max_length = 8192
+        texts, truncation=True, padding="max_length", return_tensors="pt", max_length = MAX_TEXT_LENGTH
     )
 
     labels_padded = [

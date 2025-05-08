@@ -12,6 +12,7 @@ DATASETS_PATH: str = "../../../data/datasets/"
 TRAINING_HISTORY_PATH: str = "../../../logs/"
 CHECKPOINTS_PATH: str = "../../../checkpoints/"
 
+MAX_TEXT_LENGTH: int = 8192
 
 PAD_TOKENS: Dict[str, str] = {
     "Llama-3.1-8B-Instruct": "<|finetune_right_pad_id|>",
@@ -52,7 +53,7 @@ BASELINE_MODELS: Dict[str, Dict[str, Union[int, float]]] = {
     },
 }
 
-NUM_TOKENS_DETECT_LLM: int = 100_000_000
+NUM_TOKENS_DETECT_LLM: int = 60_000_000
 NUM_TOKENS_DETECT_LLM_FAMILY: int = 100_000_000
 
 DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
@@ -80,6 +81,11 @@ DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
         "num_tokens": 100_000_000,
         "cols_c0": ["human"],
         "reverse_labels": False,
+    },
+    "detect-gpt-4.1-nano-2025-04-14": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM,
+        "cols_c0": ["gpt-4.1-nano-2025-04-14"],
+        "reverse_labels": True,
     },
     # Meta
     "detect-Llama-3.1-8B-Instruct": {

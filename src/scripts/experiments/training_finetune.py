@@ -15,7 +15,7 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
 from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, PAD_TOKENS, SEED,
-                       TRAINING_HISTORY_PATH, TRAINING_CONFIG)
+                       TRAINING_HISTORY_PATH, TRAINING_CONFIG, MAX_TEXT_LENGTH)
 from ex_utils import TextDataset, collate_fn, evaluate
 from models import FineTuneClassifier, FineTuneClassifierPhi
 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     total_batch_size = config["total_batch_size"]
     B = args.batch_size
-    T = 8192
+    T = MAX_TEXT_LENGTH
     assert total_batch_size % (B * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * ddp_world_size"
     grad_accum_steps = total_batch_size // (B * ddp_world_size)
 
