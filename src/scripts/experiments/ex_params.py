@@ -42,14 +42,14 @@ BASELINE_MODELS: Dict[str, Dict[str, Union[int, float]]] = {
         "num_layers": 12,
         "num_heads": 12,
         "max_len": 8192,
-        "start_lr": 6e-4
+        "start_lr": 6e-4,
     },
     "large": {
         "d_model": 1024,
         "num_layers": 24,
         "num_heads": 16,
         "max_len": 8192,
-        "start_lr": 3e-4
+        "start_lr": 3e-4,
     },
 }
 
@@ -236,84 +236,24 @@ DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
 }
 
 TRAINING_CONFIG: Dict[str, Dict[str, Union[int, float]]] = {
-    "Llama-3.1-8B-Instruct": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Meta-Llama-3.1-70B-Instruct-AWQ-INT4": {
-        "start_lr": 1e-4,
-        "total_batch_size": 16
-    },
-    "Llama-3.2-3B-Instruct": {
-        "start_lr": 5e-4,
-        "total_batch_size": 128
-    },
-    "Meta-Llama-3.3-70B-Instruct-AWQ-INT4": {
-        "start_lr": 1e-4,
-        "total_batch_size": 16
-    },
-    "Phi-3-mini-128k-instruct": {
-        "start_lr": 3e-4,
-        "total_batch_size": 128
-    },
-    "Phi-3-small-128k-instruct": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Phi-3-medium-128k-instruct": {
-        "start_lr": 1e-4,
-        "total_batch_size": 32
-    },
-    "Phi-3.5-mini-instruct": {
-        "start_lr": 3e-4,
-        "total_batch_size": 128
-    },
-    "Phi-4-mini-instruct": {
-        "start_lr": 3e-4,
-        "total_batch_size": 128
-    },
-    "phi-4": {
-        "start_lr": 1e-4,
-        "total_batch_size": 32
-    },
-    "Mistral-Nemo-Instruct-2407": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Ministral-8B-Instruct-2410": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Qwen2-72B-Instruct-AWQ": {
-        "start_lr": 1e-4,
-        "total_batch_size": 16
-    },
-    "Qwen2-7B-Instruct": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Qwen2.5-72B-Instruct-AWQ": {
-        "start_lr": 1e-4,
-        "total_batch_size": 16
-    },
-    "Qwen2.5-14B-Instruct": {
-        "start_lr": 1e-4,
-        "total_batch_size": 32
-    },
-    "Qwen2.5-7B-Instruct": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Qwen2.5-3B-Instruct": {
-        "start_lr": 5e-4,
-        "total_batch_size": 128
-    },
-    "Falcon3-7B-Instruct": {
-        "start_lr": 2e-4,
-        "total_batch_size": 64
-    },
-    "Falcon3-3B-Instruct": {
-        "start_lr": 5e-4,
-        "total_batch_size": 128
-    }
+    "Llama-3.1-8B-Instruct": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Meta-Llama-3.1-70B-Instruct-AWQ-INT4": {"start_lr": 1e-4, "total_batch_size": 16},
+    "Llama-3.2-3B-Instruct": {"start_lr": 5e-4, "total_batch_size": 128},
+    "Meta-Llama-3.3-70B-Instruct-AWQ-INT4": {"start_lr": 1e-4, "total_batch_size": 16},
+    "Phi-3-mini-128k-instruct": {"start_lr": 3e-4, "total_batch_size": 128},
+    "Phi-3-small-128k-instruct": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Phi-3-medium-128k-instruct": {"start_lr": 1e-4, "total_batch_size": 32},
+    "Phi-3.5-mini-instruct": {"start_lr": 3e-4, "total_batch_size": 128},
+    "Phi-4-mini-instruct": {"start_lr": 3e-4, "total_batch_size": 128},
+    "phi-4": {"start_lr": 1e-4, "total_batch_size": 32},
+    "Mistral-Nemo-Instruct-2407": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Ministral-8B-Instruct-2410": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Qwen2-72B-Instruct-AWQ": {"start_lr": 1e-4, "total_batch_size": 16},
+    "Qwen2-7B-Instruct": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Qwen2.5-72B-Instruct-AWQ": {"start_lr": 1e-4, "total_batch_size": 16},
+    "Qwen2.5-14B-Instruct": {"start_lr": 1e-4, "total_batch_size": 32},
+    "Qwen2.5-7B-Instruct": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Qwen2.5-3B-Instruct": {"start_lr": 5e-4, "total_batch_size": 128},
+    "Falcon3-7B-Instruct": {"start_lr": 2e-4, "total_batch_size": 64},
+    "Falcon3-3B-Instruct": {"start_lr": 5e-4, "total_batch_size": 128},
 }

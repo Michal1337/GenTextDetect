@@ -1,12 +1,12 @@
 import argparse
-import time
 import csv
 import os
 import time
+
 import pandas as pd
 import torch
-from torch.distributed import destroy_process_group, init_process_group
 import torch.distributed as dist
+from torch.distributed import destroy_process_group, init_process_group
 from torch.nn import BCEWithLogitsLoss
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
@@ -14,15 +14,16 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
-from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, PAD_TOKENS, SEED,
-                       TRAINING_HISTORY_PATH, TRAINING_CONFIG, MAX_TEXT_LENGTH)
+from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, MAX_TEXT_LENGTH,
+                       PAD_TOKENS, SEED, TRAINING_CONFIG,
+                       TRAINING_HISTORY_PATH)
 from ex_utils import TextDataset, collate_fn, evaluate
 from models import FineTuneClassifier, FineTuneClassifierPhi
 
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train the baseline model.")
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True)
     if model_name in PAD_TOKENS.keys():
         tokenizer.pad_token = PAD_TOKENS[model_name]
-    tokenizer.padding_side  = 'left'
+    tokenizer.padding_side = "left"
     config = TRAINING_CONFIG[model_name]
 
     df_train = pd.read_csv(ds_train_path)
@@ -74,7 +75,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
         num_workers=4,
         pin_memory=True,
-        prefetch_factor=2
+        prefetch_factor=2,
     )
 
     if master_process:
@@ -95,7 +96,7 @@ if __name__ == "__main__":
             base_model_path=args.model_path,
             num_labels=1,
         )
-        
+
     model.to(device)
     # model = torch.compile(model)
     model = DDP(model, device_ids=[ddp_local_rank])
@@ -104,13 +105,16 @@ if __name__ == "__main__":
     total_batch_size = config["total_batch_size"]
     B = args.batch_size
     T = MAX_TEXT_LENGTH
-    assert total_batch_size % (B * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * ddp_world_size"
+    assert (
+        total_batch_size % (B * ddp_world_size) == 0
+    ), "make sure total_batch_size is divisible by B * ddp_world_size"
     grad_accum_steps = total_batch_size // (B * ddp_world_size)
 
     max_lr = config["start_lr"]
     min_lr = max_lr * 0.1
     warmup_steps = len(train_loader) // grad_accum_steps
     max_steps = 4 * len(train_loader) // grad_accum_steps
+
     def get_lr(it):
         if it < warmup_steps:
             return max_lr * (it + 1) / warmup_steps
@@ -124,11 +128,15 @@ if __name__ == "__main__":
         return min_lr + coeff * (max_lr - min_lr)
 
     if master_process:
-        print(f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+        print(
+            f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
+        )
         print(f"Dataset size: {len(train_loader)}")
         print(f"Batch Size: {B} Grad Accumulation Steps: {grad_accum_steps}")
-        print(f"Max LR: {max_lr} Min LR: {min_lr} Warmup Steps: {warmup_steps} Max Steps: {max_steps}")
-    
+        print(
+            f"Max LR: {max_lr} Min LR: {min_lr} Warmup Steps: {warmup_steps} Max Steps: {max_steps}"
+        )
+
     loss_fn = BCEWithLogitsLoss()
     optimizer = AdamW(model.parameters(), lr=get_lr(0), betas=(0.9, 0.999), fused=True)
 
@@ -158,7 +166,7 @@ if __name__ == "__main__":
                 ],
             )
             writer.writeheader()
-    
+
     for epoch in range(args.epochs):
         train_sampler.set_epoch(epoch)
 
@@ -193,7 +201,9 @@ if __name__ == "__main__":
             tokens_processed = B * T * ddp_world_size
             tokens_per_sec = tokens_processed / dt
             if master_process:
-                print(f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
+                print(
+                    f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}"
+                )
 
             if micro_step % grad_accum_steps == 0 or micro_step == len(train_loader):
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -209,7 +219,7 @@ if __name__ == "__main__":
 
         avg_loss = epoch_loss / len(train_loader)
 
-        if master_process:            
+        if master_process:
             val_metrics = evaluate(model, val_loader, device, "finetune")
 
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")

@@ -6,25 +6,21 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ex_params import (
-    DATA_AI_PATH,
-    DATA_HUMAN_PATH,
-    DATASETS,
-    DATASETS_PATH,
-    STATS_PATH,
-    SEED,
-    MAX_TEXT_LENGTH
-)
+from ex_params import (DATA_AI_PATH, DATA_HUMAN_PATH, DATASETS, DATASETS_PATH,
+                       MAX_TEXT_LENGTH, SEED, STATS_PATH)
 from ex_utils import get_csv_paths
 
 np.random.seed(SEED)
 BATCH_SIZE = 16
 
 
-def remove_long_texts(stats: Dict[str, pd.DataFrame], max_len: int) -> Dict[str, pd.DataFrame]:
+def remove_long_texts(
+    stats: Dict[str, pd.DataFrame], max_len: int
+) -> Dict[str, pd.DataFrame]:
     for k, v in stats.items():
         stats[k] = v[v["num_tokens"] <= max_len]
     return stats
+
 
 def remove_test_samples(
     stats: Dict[str, pd.DataFrame], test_idx: pd.DataFrame
@@ -65,9 +61,10 @@ def calculate_probs(df_main: pd.DataFrame, cols_c0: List[str]) -> pd.DataFrame:
 
     for ds in df_main["data"].unique():
         df_main.loc[df_main["data"].values == ds, "prob"] = (
-            (1 / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].values)
-            / (1 / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"]).sum()
-        )
+            1 / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"].values
+        ) / (
+            1 / df_main.loc[df_main["data"].values == ds, "avg_token_per_sample"]
+        ).sum()
         mask_c0 = (df_main["data"].values == ds) & (df_main["model"].isin(cols_c0))
         mask_c1 = (df_main["data"].values == ds) & (~df_main["model"].isin(cols_c0))
 

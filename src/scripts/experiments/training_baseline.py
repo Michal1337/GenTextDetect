@@ -1,15 +1,13 @@
 import argparse
-import time
-import math
 import csv
+import math
 import os
+import time
 
 import pandas as pd
 import torch
-from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
-                             precision_score, recall_score, roc_auc_score)
-from torch.distributed import destroy_process_group, init_process_group
 import torch.distributed as dist
+from torch.distributed import destroy_process_group, init_process_group
 from torch.nn import BCEWithLogitsLoss
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
@@ -17,15 +15,15 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
-from ex_params import (BASELINE_MODELS, CHECKPOINTS_PATH, DATASETS_PATH, SEED,
-                       TRAINING_HISTORY_PATH, MAX_TEXT_LENGTH)
+from ex_params import (BASELINE_MODELS, CHECKPOINTS_PATH, DATASETS_PATH,
+                       MAX_TEXT_LENGTH, SEED, TRAINING_HISTORY_PATH)
 from ex_utils import TextDataset, collate_fn, evaluate
 from models import BaselineClassifier
 
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
 
 
 if __name__ == "__main__":
@@ -42,7 +40,7 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
     tokenizer.pad_token = "<|finetune_right_pad_id|>"
-    tokenizer.padding_side  = 'left'
+    tokenizer.padding_side = "left"
 
     df_train = pd.read_csv(ds_train_path)
     df_val = pd.read_csv(ds_val_path)
@@ -76,7 +74,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
         num_workers=4,
         pin_memory=True,
-        prefetch_factor=2
+        prefetch_factor=2,
     )
 
     if master_process:
@@ -101,35 +99,44 @@ if __name__ == "__main__":
     model = DDP(model, device_ids=[ddp_local_rank])
     raw_model = model.module
 
-    total_batch_size = 2**19 # 2**19, ~0.5M, in number of tokens
+    total_batch_size = 2**19  # 2**19, ~0.5M, in number of tokens
     B = args.batch_size
     T = MAX_TEXT_LENGTH
-    assert total_batch_size % (B * T * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * T * ddp_world_size"
+    assert (
+        total_batch_size % (B * T * ddp_world_size) == 0
+    ), "make sure total_batch_size is divisible by B * T * ddp_world_size"
     grad_accum_steps = total_batch_size // (B * T * ddp_world_size)
 
     max_lr = model_config["start_lr"]
     min_lr = max_lr * 0.1
     warmup_steps = 2 * len(train_loader) // grad_accum_steps
     max_steps = 8 * len(train_loader) // grad_accum_steps
+
     def get_lr(it):
         # 1) linear warmup for warmup_iters steps
         if it < warmup_steps:
-            return max_lr * (it+1) / warmup_steps
+            return max_lr * (it + 1) / warmup_steps
         # 2) if it > lr_decay_iters, return min learning rate
         if it > max_steps:
             return min_lr
         # 3) in between, use cosine decay down to min learning rate
         decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
         assert 0 <= decay_ratio <= 1
-        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+        coeff = 0.5 * (
+            1.0 + math.cos(math.pi * decay_ratio)
+        )  # coeff starts at 1 and goes to 0
         return min_lr + coeff * (max_lr - min_lr)
 
     if master_process:
-        print(f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+        print(
+            f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
+        )
         print(f"Dataset size: {len(train_loader)}")
         print(f"Batch Size: {B} Grad Accumulation Steps: {grad_accum_steps}")
-        print(f"Max LR: {max_lr} Min LR: {min_lr} Warmup Steps: {warmup_steps} Max Steps: {max_steps}")
-    
+        print(
+            f"Max LR: {max_lr} Min LR: {min_lr} Warmup Steps: {warmup_steps} Max Steps: {max_steps}"
+        )
+
     loss_fn = BCEWithLogitsLoss()
     optimizer = AdamW(model.parameters(), lr=get_lr(0), betas=(0.9, 0.95), fused=True)
 
@@ -193,7 +200,9 @@ if __name__ == "__main__":
             tokens_processed = B * T * ddp_world_size
             tokens_per_sec = tokens_processed / dt
             if master_process:
-                print(f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
+                print(
+                    f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}"
+                )
 
             if micro_step % grad_accum_steps == 0 or micro_step == len(train_loader):
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
