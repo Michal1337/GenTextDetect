@@ -104,6 +104,7 @@ def create_dataset_idx(
     ]
     probs = np.array(weights) / np.sum(weights)
 
+    empty_datas = []
     total_tokens, total_sentences, total_samples = 0, 0, 0
     cnt, err_cnt = 0, 0
     while total_tokens < max_tokens:
@@ -111,8 +112,8 @@ def create_dataset_idx(
         tmp = df_main[(df_main["data"] == data)]
         model = np.random.choice(tmp["model"], p=tmp["prob"])
 
-        stat = stats[f"{data}_{model}"]
         try:
+            stat = stats[f"{data}_{model}"]
             slct = stat.sample(n=batch_size, replace=False, random_state=SEED)
             stat.drop(slct.index, inplace=True)
 
@@ -128,10 +129,46 @@ def create_dataset_idx(
             slct.to_csv(
                 save_path, mode="a", header=not os.path.exists(save_path), index=False
             )
-
             cnt += 1
         except ValueError:
-            err_cnt += 1
+            try:
+                # print(f"Empty data: {data}, model: {model}")
+                err_cnt += 1
+
+                empty_datas.append(data)
+                non_empty_datas = [
+                    d for d in df_main["data"].unique() if d not in empty_datas
+                ]
+                weights_empty = [
+                    (
+                        df_main.loc[df_main["data"] == ds, "num_tokens"]
+                        * df_main.loc[df_main["data"] == ds, "prob"]
+                    ).sum()
+                    for ds in non_empty_datas
+                ]
+                probs_empty = np.array(weights_empty) / np.sum(weights_empty)
+                data_new = np.random.choice(
+                    non_empty_datas, p=probs_empty
+                )
+                mult = df_main[(df_main["data"] == data) & (df_main["model"] == model)]["avg_token_per_sample"].tolist()[0] / df_main[(df_main["data"] == data_new) & (df_main["model"] == model)]["avg_token_per_sample"].tolist()[0]
+                stat = stats[f"{data_new}_{model}"]
+                slct = stat.sample(n=int(batch_size * mult), replace=False, random_state=SEED)
+                stat.drop(slct.index, inplace=True)
+
+                total_tokens += slct.sum()["num_tokens"]
+                total_sentences += slct.sum()["num_sentences"]
+                total_samples += int(batch_size * mult)
+
+                # save data, model, slct.index to csv
+                slct["data"] = data_new
+                slct["model"] = model
+                slct.reset_index(inplace=True)
+                slct.to_csv(
+                    save_path, mode="a", header=not os.path.exists(save_path), index=False
+                )
+            except ValueError:
+                empty_datas.append(data)
+                err_cnt += 1
 
         if cnt % 1000 == 0:
             print(
