@@ -57,31 +57,31 @@ NUM_TOKENS_DETECT_LLM: int = 60_000_000
 NUM_TOKENS_DETECT_LLM_FAMILY: int = 100_000_000
 
 DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
-    "master-testset": {
-        "num_tokens": 100_000_000,
-        "cols_c0": ["human"],
-        "reverse_labels": False,
-    },
-    "master-mini": {
-        "num_tokens": 10_000_000,
-        "cols_c0": ["human"],
-        "reverse_labels": False,
-    },
-    "master-small": {
-        "num_tokens": 20_000_000,
-        "cols_c0": ["human"],
-        "reverse_labels": False,
-    },
-    "master-medium": {
-        "num_tokens": 50_000_000,
-        "cols_c0": ["human"],
-        "reverse_labels": False,
-    },
-    "master-large": {
-        "num_tokens": 100_000_000,
-        "cols_c0": ["human"],
-        "reverse_labels": False,
-    },
+    # "master-testset": {
+    #     "num_tokens": 100_000_000,
+    #     "cols_c0": ["human"],
+    #     "reverse_labels": False,
+    # },
+    # "master-mini": {
+    #     "num_tokens": 10_000_000,
+    #     "cols_c0": ["human"],
+    #     "reverse_labels": False,
+    # },
+    # "master-small": {
+    #     "num_tokens": 20_000_000,
+    #     "cols_c0": ["human"],
+    #     "reverse_labels": False,
+    # },
+    # "master-medium": {
+    #     "num_tokens": 50_000_000,
+    #     "cols_c0": ["human"],
+    #     "reverse_labels": False,
+    # },
+    # "master-large": {
+    #     "num_tokens": 100_000_000,
+    #     "cols_c0": ["human"],
+    #     "reverse_labels": False,
+    # },
     "detect-gpt-4.1-nano-2025-04-14": {
         "num_tokens": NUM_TOKENS_DETECT_LLM,
         "cols_c0": ["gpt-4.1-nano-2025-04-14"],
