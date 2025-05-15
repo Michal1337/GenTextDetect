@@ -71,7 +71,7 @@ if __name__ == "__main__":
         rank=ddp_rank,
         shuffle=True,
         seed=SEED,
-    )    
+    )
     val_sampler = torch.utils.data.distributed.DistributedSampler(
         val_dataset,
         num_replicas=ddp_world_size,
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         shuffle=False,
         collate_fn=lambda batch: collate_fn(batch, tokenizer),
-        sampler=val_sampler
+        sampler=val_sampler,
     )
 
     if "phi" in model_name.lower():

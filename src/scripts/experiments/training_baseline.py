@@ -91,7 +91,7 @@ if __name__ == "__main__":
         batch_size=2,
         shuffle=False,
         collate_fn=lambda batch: collate_fn(batch, tokenizer),
-        sampler=val_sampler
+        sampler=val_sampler,
     )
 
     model = BaselineClassifier(

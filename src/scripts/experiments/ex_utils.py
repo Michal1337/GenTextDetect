@@ -1,7 +1,7 @@
 import os
-import numpy as np
 from typing import Dict, List, Union
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
@@ -77,7 +77,12 @@ def collate_fn(
 
 
 def evaluate(
-    model: torch.nn.Module, dataloader: DataLoader, device: str, t: str, master_process: bool) -> Dict[str, float]:
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+    device: str,
+    t: str,
+    master_process: bool,
+) -> Dict[str, float]:
     model.eval()
     loss_fn = BCEWithLogitsLoss()
 
@@ -97,7 +102,9 @@ def evaluate(
                     attention_mask = batch["attention_mask"].to(device)
                     outputs = model(input_ids, attention_mask)
                 else:
-                    raise ValueError("Invalid training type. Use 'baseline' or 'finetune'.")
+                    raise ValueError(
+                        "Invalid training type. Use 'baseline' or 'finetune'."
+                    )
 
                 mask = labels.view(-1) != -100
                 labels = labels.view(-1)[mask].float()
@@ -120,7 +127,6 @@ def evaluate(
 
     preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
     targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
-
 
     dist.all_gather(preds_list, preds_tensor)
     dist.all_gather(targets_list, targets_tensor)

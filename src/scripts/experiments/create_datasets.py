@@ -144,12 +144,19 @@ def create_dataset_idx(
                     for ds in non_empty_datas
                 ]
                 probs_empty = np.array(weights_empty) / np.sum(weights_empty)
-                data_new = np.random.choice(
-                    non_empty_datas, p=probs_empty
+                data_new = np.random.choice(non_empty_datas, p=probs_empty)
+                mult = (
+                    df_main[(df_main["data"] == data) & (df_main["model"] == model)][
+                        "avg_token_per_sample"
+                    ].tolist()[0]
+                    / df_main[
+                        (df_main["data"] == data_new) & (df_main["model"] == model)
+                    ]["avg_token_per_sample"].tolist()[0]
                 )
-                mult = df_main[(df_main["data"] == data) & (df_main["model"] == model)]["avg_token_per_sample"].tolist()[0] / df_main[(df_main["data"] == data_new) & (df_main["model"] == model)]["avg_token_per_sample"].tolist()[0]
                 stat = stats[f"{data_new}_{model}"]
-                slct = stat.sample(n=int(batch_size * mult), replace=False, random_state=SEED)
+                slct = stat.sample(
+                    n=int(batch_size * mult), replace=False, random_state=SEED
+                )
                 stat.drop(slct.index, inplace=True)
 
                 total_tokens += slct.sum()["num_tokens"]
@@ -161,7 +168,10 @@ def create_dataset_idx(
                 slct["model"] = model
                 slct.reset_index(inplace=True)
                 slct.to_csv(
-                    save_path, mode="a", header=not os.path.exists(save_path), index=False
+                    save_path,
+                    mode="a",
+                    header=not os.path.exists(save_path),
+                    index=False,
                 )
             except ValueError:
                 empty_datas.append(data)
