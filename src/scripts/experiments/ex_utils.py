@@ -1,7 +1,9 @@
 import os
+import numpy as np
 from typing import Dict, List, Union
 
 import torch
+import torch.distributed as dist
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from torch.nn import BCEWithLogitsLoss
@@ -75,55 +77,80 @@ def collate_fn(
 
 
 def evaluate(
-    model: torch.nn.Module, dataloader: DataLoader, device: str, type: str
-) -> Dict[str, float]:
+    model: torch.nn.Module, dataloader: DataLoader, device: str, t: str, master_process: bool) -> Dict[str, float]:
     model.eval()
-    preds, targets = [], []
-    total_loss = 0.0
     loss_fn = BCEWithLogitsLoss()
 
+    preds_local, targets_local = [], []
+    total_loss = torch.tensor(0.0, device=device)
+    num_batches = torch.tensor(0.0, device=device)
+
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc="Evaluating"):
+        for batch in tqdm(dataloader, desc="Evaluating", disable=not master_process):
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
 
-            if type == "baseline":
-                outputs = model(input_ids)
-            elif type == "finetune":
-                attention_mask = batch["attention_mask"].to(device)
-                outputs = model(input_ids, attention_mask)
-            else:
-                raise Exception(
-                    "Wrong training type, should be 'baseline' or 'finetune'."
-                )
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                if t == "baseline":
+                    outputs = model(input_ids)
+                elif t == "finetune":
+                    attention_mask = batch["attention_mask"].to(device)
+                    outputs = model(input_ids, attention_mask)
+                else:
+                    raise ValueError("Invalid training type. Use 'baseline' or 'finetune'.")
 
-            mask = labels.view(-1) != -100
-            labels = labels.view(-1)[mask].float()
-            outputs = outputs.view(-1)[mask]
+                mask = labels.view(-1) != -100
+                labels = labels.view(-1)[mask].float()
+                outputs = outputs.view(-1)[mask]
 
-            loss = loss_fn(outputs, labels)
+                loss = loss_fn(outputs, labels)
+
             total_loss += loss.item()
+            num_batches += 1
 
-            logits = torch.sigmoid(outputs).squeeze().cpu().numpy()
+            logits = torch.sigmoid(outputs).squeeze().float().cpu().numpy()
             labels = labels.squeeze().cpu().numpy()
 
-            preds.extend(logits)
-            targets.extend(labels)
+            preds_local.extend(logits.tolist())
+            targets_local.extend(labels.tolist())
 
-    bin_preds = [1 if p >= 0.5 else 0 for p in preds]
+    # Gather predictions and labels from all processes
+    preds_tensor = torch.tensor(preds_local, dtype=torch.float32, device=device)
+    targets_tensor = torch.tensor(targets_local, dtype=torch.float32, device=device)
 
-    # print(preds)
-    # print("--------")
-    # print(targets)
+    preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
+    targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
 
-    metrics = {
-        "loss": total_loss / len(dataloader),
-        "accuracy": accuracy_score(targets, bin_preds),
-        "balanced_accuracy": balanced_accuracy_score(targets, bin_preds),
-        "precision": precision_score(targets, bin_preds),
-        "recall": recall_score(targets, bin_preds),
-        "f1": f1_score(targets, bin_preds),
-        "auc": roc_auc_score(targets, preds),
-    }
 
-    return metrics
+    dist.all_gather(preds_list, preds_tensor)
+    dist.all_gather(targets_list, targets_tensor)
+    dist.all_reduce(total_loss, op=dist.ReduceOp.SUM)
+    dist.all_reduce(num_batches, op=dist.ReduceOp.SUM)
+
+    if master_process:
+        preds_all = torch.cat(preds_list).cpu().numpy()
+        targets_all = torch.cat(targets_list).cpu().numpy()
+
+        targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+        bin_preds = (preds_all >= 0.5).astype(int)
+
+        # save all predictions to a CSV file
+        output_file = f"predictions_{t}.csv"
+        with open(output_file, "w") as f:
+            f.write("predictions,labels,bin_preds\n")
+            for pred, label, bp in zip(preds_all, targets_all, bin_preds):
+                f.write(f"{pred},{label},{bp}\n")
+
+        metrics = {
+            "loss": total_loss.item() / max(num_batches.item(), 1),
+            "accuracy": accuracy_score(targets_all, bin_preds),
+            "balanced_accuracy": balanced_accuracy_score(targets_all, bin_preds),
+            "precision": precision_score(targets_all, bin_preds),
+            "recall": recall_score(targets_all, bin_preds),
+            "f1": f1_score(targets_all, bin_preds),
+            "auc": roc_auc_score(targets_all, preds_all),
+        }
+
+        return metrics
+
+    return {}  # Other ranks return empty

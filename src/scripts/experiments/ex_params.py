@@ -28,28 +28,28 @@ BASELINE_MODELS: Dict[str, Dict[str, Union[int, float]]] = {
         "num_layers": 4,
         "num_heads": 4,
         "max_len": 8192,
-        "start_lr": 1e-3,
+        "start_lr": 3e-4,
     },
     "small": {
         "d_model": 546,
         "num_layers": 8,
         "num_heads": 6,
         "max_len": 8192,
-        "start_lr": 1e-3,
+        "start_lr": 1e-4,
     },
     "medium": {
         "d_model": 768,
         "num_layers": 12,
         "num_heads": 12,
         "max_len": 8192,
-        "start_lr": 6e-4,
+        "start_lr": 5e-5,
     },
     "large": {
         "d_model": 1024,
         "num_layers": 24,
         "num_heads": 16,
         "max_len": 8192,
-        "start_lr": 3e-4,
+        "start_lr": 2e-5,
     },
 }
 

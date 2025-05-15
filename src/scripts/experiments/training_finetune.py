@@ -58,6 +58,11 @@ if __name__ == "__main__":
     device_type = "cuda"
     torch.cuda.set_device(device)
     master_process = ddp_rank == 0
+
+    if master_process:
+        print("=" * 50)
+        print(f"Model name: {model_name}, Dataset name: {args.dataset_name}")
+
     print(f"World Size: {ddp_world_size}, Local Rank: {ddp_local_rank}")
 
     train_sampler = DistributedSampler(
@@ -66,25 +71,32 @@ if __name__ == "__main__":
         rank=ddp_rank,
         shuffle=True,
         seed=SEED,
+    )    
+    val_sampler = torch.utils.data.distributed.DistributedSampler(
+        val_dataset,
+        num_replicas=ddp_world_size,
+        rank=ddp_rank,
+        shuffle=False,
+        seed=SEED,
     )
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
         shuffle=False,
         collate_fn=lambda batch: collate_fn(batch, tokenizer),
         sampler=train_sampler,
-        num_workers=4,
+        num_workers=args.batch_size,
         pin_memory=True,
         prefetch_factor=2,
     )
-
-    if master_process:
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            collate_fn=lambda batch: collate_fn(batch, tokenizer),
-        )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=lambda batch: collate_fn(batch, tokenizer),
+        sampler=val_sampler
+    )
 
     if "phi" in model_name.lower():
         model = FineTuneClassifierPhi(
@@ -219,9 +231,10 @@ if __name__ == "__main__":
 
         avg_loss = epoch_loss / len(train_loader)
 
-        if master_process:
-            val_metrics = evaluate(model, val_loader, device, "finetune")
+        torch.cuda.empty_cache()
+        val_metrics = evaluate(model, val_loader, device, "finetune")
 
+        if master_process:
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")
             print("Val Metrics:", val_metrics)
 
