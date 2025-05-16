@@ -17,7 +17,7 @@ from transformers import AutoTokenizer
 from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, MAX_TEXT_LENGTH,
                        PAD_TOKENS, SEED, TRAINING_CONFIG,
                        TRAINING_HISTORY_PATH)
-from ex_utils import TextDataset, collate_fn, evaluate
+from ex_utils import TextDataset, collate_fn_longest, evaluate
 from models import FineTuneClassifier, FineTuneClassifierPhi
 
 torch.manual_seed(SEED)
@@ -84,17 +84,14 @@ if __name__ == "__main__":
         train_dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch, tokenizer),
+        collate_fn=lambda batch: collate_fn_longest(batch, tokenizer),
         sampler=train_sampler,
-        num_workers=args.batch_size,
-        pin_memory=True,
-        prefetch_factor=2,
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=args.batch_size,
+        batch_size=1,
         shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch, tokenizer),
+        collate_fn=lambda batch: collate_fn_longest(batch, tokenizer),
         sampler=val_sampler,
     )
 
@@ -125,7 +122,7 @@ if __name__ == "__main__":
     max_lr = config["start_lr"]
     min_lr = max_lr * 0.1
     warmup_steps = len(train_loader) // grad_accum_steps
-    max_steps = 4 * len(train_loader) // grad_accum_steps
+    max_steps = 3 * len(train_loader) // grad_accum_steps
 
     def get_lr(it):
         if it < warmup_steps:
@@ -157,10 +154,9 @@ if __name__ == "__main__":
     best_val_acc = -1
     step = 0
 
-    history_path = (
-        TRAINING_HISTORY_PATH
+    history_path = TRAINING_HISTORY_PATH
         + f"finetune/training_history_finetune_{model_name}_{args.dataset_name}.csv"
-    )
+    
     if master_process:
         with open(history_path, mode="w", newline="") as f:
             writer = csv.DictWriter(
@@ -210,7 +206,7 @@ if __name__ == "__main__":
 
             t1 = time.time()
             dt = t1 - t0
-            tokens_processed = B * T * ddp_world_size
+            tokens_processed = B * input_ids.shape[1] * ddp_world_size
             tokens_per_sec = tokens_processed / dt
             if master_process:
                 print(
@@ -232,7 +228,7 @@ if __name__ == "__main__":
         avg_loss = epoch_loss / len(train_loader)
 
         torch.cuda.empty_cache()
-        val_metrics = evaluate(model, val_loader, device, "finetune")
+        val_metrics = evaluate(model, val_loader, device, "finetune", master_process)
 
         if master_process:
             print(f"Epoch {epoch+1} complete. Avg loss: {avg_loss:.4f}")

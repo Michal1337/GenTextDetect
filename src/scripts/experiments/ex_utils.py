@@ -75,6 +75,27 @@ def collate_fn(
 
     return encodings
 
+def collate_fn_longest(
+    batch: List[Dict[str, torch.tensor]], tokenizer: AutoTokenizer
+) -> Dict[str, torch.tensor]:
+    texts = [item["text"] for item in batch]
+    labels = [item["label"] for item in batch]
+    encodings = tokenizer(
+        texts,
+        truncation=True,
+        padding="longest",
+        return_tensors="pt",
+    )
+
+    labels_padded = [
+        torch.where(t == 0, torch.tensor(-100), torch.tensor(label))
+        for t, label in zip(encodings["attention_mask"], labels)
+    ]
+    labels_padded = torch.cat(labels_padded)
+    encodings["labels"] = labels_padded
+
+    return encodings
+
 
 def evaluate(
     model: torch.nn.Module,
@@ -139,13 +160,6 @@ def evaluate(
 
         targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
         bin_preds = (preds_all >= 0.5).astype(int)
-
-        # save all predictions to a CSV file
-        output_file = f"predictions_{t}.csv"
-        with open(output_file, "w") as f:
-            f.write("predictions,labels,bin_preds\n")
-            for pred, label, bp in zip(preds_all, targets_all, bin_preds):
-                f.write(f"{pred},{label},{bp}\n")
 
         metrics = {
             "loss": total_loss.item() / max(num_batches.item(), 1),

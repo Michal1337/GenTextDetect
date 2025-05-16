@@ -5,14 +5,25 @@ SEED: int = 1337
 DATA_HUMAN_PATH: str = "../../../data/data_human/"
 DATA_AI_PATH: str = "../../../data/data_ai/"
 
+DATA_HUMAN_FEATURES_PATH: str = "../../../data/features/data_human/"
+DATA_AI_FEATURES_PATH: str = "../../../data/features/data_ai/"
+
 STATS_PATH: str = "../../../data/stats/"
-MASTER_STATS_PATH: str = "../../../data/stats/data_stats_master.csv"
 
 DATASETS_PATH: str = "../../../data/datasets/"
 TRAINING_HISTORY_PATH: str = "../../../logs/"
 CHECKPOINTS_PATH: str = "../../../checkpoints/"
 
 MAX_TEXT_LENGTH: int = 8192
+SELECTED_FEATURES1: List[str] = ['noun_ratio', 
+    'automated_readability_index', 
+    'contraction_count',
+    'discourse_marker_ratio']
+
+SELECTED_FEATURES2: List[str] = ['entropy_score', 
+    'conjunction_count', 
+    'syntactic_depth',
+    'Mass']
 
 PAD_TOKENS: Dict[str, str] = {
     "Llama-3.1-8B-Instruct": "<|finetune_right_pad_id|>",
@@ -57,31 +68,31 @@ NUM_TOKENS_DETECT_LLM: int = 60_000_000
 NUM_TOKENS_DETECT_LLM_FAMILY: int = 100_000_000
 
 DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
-    # "master-testset": {
-    #     "num_tokens": 100_000_000,
-    #     "cols_c0": ["human"],
-    #     "reverse_labels": False,
-    # },
-    # "master-mini": {
-    #     "num_tokens": 10_000_000,
-    #     "cols_c0": ["human"],
-    #     "reverse_labels": False,
-    # },
-    # "master-small": {
-    #     "num_tokens": 20_000_000,
-    #     "cols_c0": ["human"],
-    #     "reverse_labels": False,
-    # },
-    # "master-medium": {
-    #     "num_tokens": 50_000_000,
-    #     "cols_c0": ["human"],
-    #     "reverse_labels": False,
-    # },
-    # "master-large": {
-    #     "num_tokens": 100_000_000,
-    #     "cols_c0": ["human"],
-    #     "reverse_labels": False,
-    # },
+    "master-testset": {
+        "num_tokens": 100_000_000,
+        "cols_c0": ["human"],
+        "reverse_labels": False,
+    },
+    "master-mini": {
+        "num_tokens": 10_000_000,
+        "cols_c0": ["human"],
+        "reverse_labels": False,
+    },
+    "master-small": {
+        "num_tokens": 20_000_000,
+        "cols_c0": ["human"],
+        "reverse_labels": False,
+    },
+    "master-medium": {
+        "num_tokens": 50_000_000,
+        "cols_c0": ["human"],
+        "reverse_labels": False,
+    },
+    "master-large": {
+        "num_tokens": 100_000_000,
+        "cols_c0": ["human"],
+        "reverse_labels": False,
+    },
     "detect-gpt-4.1-nano-2025-04-14": {
         "num_tokens": NUM_TOKENS_DETECT_LLM,
         "cols_c0": ["gpt-4.1-nano-2025-04-14"],
