@@ -10,3 +10,6 @@ textstat
 tqdm
 nltk
 spacy
+pypickle
+xgboost
+scikit-learn

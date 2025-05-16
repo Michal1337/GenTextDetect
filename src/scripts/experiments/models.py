@@ -53,7 +53,6 @@ class FineTuneClassifierPhi(nn.Module):
             attn_implementation="flash_attention_2",
             trust_remote_code=True,
         )
-        print(type(self.base_model))
 
         for param in self.base_model.parameters():
             param.requires_grad = False

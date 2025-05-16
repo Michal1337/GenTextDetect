@@ -15,15 +15,19 @@ TRAINING_HISTORY_PATH: str = "../../../logs/"
 CHECKPOINTS_PATH: str = "../../../checkpoints/"
 
 MAX_TEXT_LENGTH: int = 8192
-SELECTED_FEATURES1: List[str] = ['noun_ratio', 
-    'automated_readability_index', 
-    'contraction_count',
-    'discourse_marker_ratio']
+SELECTED_FEATURES1: List[str] = [
+    "noun_ratio",
+    "automated_readability_index",
+    "contraction_count",
+    "discourse_marker_ratio",
+]
 
-SELECTED_FEATURES2: List[str] = ['entropy_score', 
-    'conjunction_count', 
-    'syntactic_depth',
-    'Mass']
+SELECTED_FEATURES2: List[str] = [
+    "entropy_score",
+    "conjunction_count",
+    "syntactic_depth",
+    "Mass",
+]
 
 PAD_TOKENS: Dict[str, str] = {
     "Llama-3.1-8B-Instruct": "<|finetune_right_pad_id|>",

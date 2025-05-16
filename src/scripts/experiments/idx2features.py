@@ -1,11 +1,20 @@
 import csv
-import pandas as pd
 from typing import List
+
+import pandas as pd
 from tqdm import tqdm
-from ex_params import DATA_HUMAN_FEATURES_PATH, DATA_AI_FEATURES_PATH, DATASETS, DATASETS_PATH, SELECTED_FEATURES1, SELECTED_FEATURES2 
+
+from ex_params import (DATA_AI_FEATURES_PATH, DATA_HUMAN_FEATURES_PATH,
+                       DATASETS, DATASETS_PATH, SELECTED_FEATURES1,
+                       SELECTED_FEATURES2)
+
 
 def idx2features(
-    df: pd.DataFrame, features: List[str], cols_c0: List[str], reverse_labels: bool, save_path: str
+    df: pd.DataFrame,
+    features: List[str],
+    cols_c0: List[str],
+    reverse_labels: bool,
+    save_path: str,
 ) -> None:
     # init csv
     with open(save_path, mode="w", newline="", encoding="utf-8") as file:
@@ -18,7 +27,10 @@ def idx2features(
             if model == "human":
                 path = DATA_HUMAN_FEATURES_PATH + f"{data}_human_features.csv"
             else:
-                path = DATA_AI_FEATURES_PATH + f"{data.replace('-', '_')}/{data}_{model}_features.csv"
+                path = (
+                    DATA_AI_FEATURES_PATH
+                    + f"{data.replace('-', '_')}/{data}_{model}_features.csv"
+                )
 
             subset = df[(df["data"] == data) & (df["model"] == model)]
             df_data = pd.read_csv(path)
@@ -51,10 +63,14 @@ if __name__ == "__main__":
             test_idx_path = DATASETS_PATH + f"{name}/test_idx.csv"
             df_idx = pd.read_csv(test_idx_path)
             save_path_features = DATASETS_PATH + f"{name}/test_features.csv"
-            idx2features(df_idx, SELECTED_FEATURES1, cols_c0, reverse_labels, save_path_features)
+            idx2features(
+                df_idx, SELECTED_FEATURES1, cols_c0, reverse_labels, save_path_features
+            )
 
             save_path_features = DATASETS_PATH + f"{name}/test_features2.csv"
-            idx2features(df_idx, SELECTED_FEATURES2, cols_c0, reverse_labels, save_path_features)
+            idx2features(
+                df_idx, SELECTED_FEATURES2, cols_c0, reverse_labels, save_path_features
+            )
         else:
             train_idx_path = DATASETS_PATH + f"{name}/train_idx.csv"
             val_idx_path = DATASETS_PATH + f"{name}/val_idx.csv"
@@ -62,15 +78,23 @@ if __name__ == "__main__":
             df_idx = pd.read_csv(train_idx_path)
 
             save_path_features = DATASETS_PATH + f"{name}/train_features.csv"
-            idx2features(df_idx, SELECTED_FEATURES1, cols_c0, reverse_labels, save_path_features)
+            idx2features(
+                df_idx, SELECTED_FEATURES1, cols_c0, reverse_labels, save_path_features
+            )
 
             save_path_features = DATASETS_PATH + f"{name}/train_features2.csv"
-            idx2features(df_idx, SELECTED_FEATURES2, cols_c0, reverse_labels, save_path_features)
+            idx2features(
+                df_idx, SELECTED_FEATURES2, cols_c0, reverse_labels, save_path_features
+            )
 
             df_idx = pd.read_csv(val_idx_path)
 
             save_path_features = DATASETS_PATH + f"{name}/val_features.csv"
-            idx2features(df_idx, SELECTED_FEATURES1, cols_c0, reverse_labels, save_path_features)
+            idx2features(
+                df_idx, SELECTED_FEATURES1, cols_c0, reverse_labels, save_path_features
+            )
 
             save_path_features = DATASETS_PATH + f"{name}/val_features2.csv"
-            idx2features(df_idx, SELECTED_FEATURES2, cols_c0, reverse_labels, save_path_features)
+            idx2features(
+                df_idx, SELECTED_FEATURES2, cols_c0, reverse_labels, save_path_features
+            )

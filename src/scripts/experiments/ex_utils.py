@@ -75,6 +75,7 @@ def collate_fn(
 
     return encodings
 
+
 def collate_fn_longest(
     batch: List[Dict[str, torch.tensor]], tokenizer: AutoTokenizer
 ) -> Dict[str, torch.tensor]:
