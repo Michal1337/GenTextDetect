@@ -14,7 +14,14 @@ DATASETS_PATH: str = "../../../data/datasets/"
 TRAINING_HISTORY_PATH: str = "../../../logs/"
 CHECKPOINTS_PATH: str = "../../../checkpoints/"
 
+# Params for master-testset-hard
+NUM_SAMPLES: int = 100_000
+MAX_MODEL_LEN: int = 32_768
+MAX_TOKENS_GENERATE: int = 16_384
+
+# Maximum text length for LLMs finetuning
 MAX_TEXT_LENGTH: int = 8192
+
 SELECTED_FEATURES1: List[str] = [
     "noun_ratio",
     "automated_readability_index",

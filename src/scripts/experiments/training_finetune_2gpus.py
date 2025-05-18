@@ -9,8 +9,8 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, PAD_TOKENS, SEED, TRAINING_CONFIG,
-                       TRAINING_HISTORY_PATH)
+from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, PAD_TOKENS, SEED,
+                       TRAINING_CONFIG, TRAINING_HISTORY_PATH)
 from ex_utils import TextDataset, collate_fn_longest, evaluate_2gpus
 from models import FineTuneClassifier2GPUs
 
@@ -45,7 +45,6 @@ if __name__ == "__main__":
     print("=" * 50)
     print(f"Model name: {model_name}, Dataset name: {args.dataset_name}")
 
-
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -68,9 +67,7 @@ if __name__ == "__main__":
 
     total_batch_size = config["total_batch_size"]
     B = args.batch_size
-    assert (
-        total_batch_size % B == 0
-    ), "make sure total_batch_size is divisible by B"
+    assert total_batch_size % B == 0, "make sure total_batch_size is divisible by B"
     grad_accum_steps = total_batch_size // B
 
     max_lr = config["start_lr"]
@@ -90,7 +87,6 @@ if __name__ == "__main__":
         coeff = 1.0 - decay_ratio  # Linearly decays from 1 to 0
         return min_lr + coeff * (max_lr - min_lr)
 
-
     print(
         f"Model size: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
     )
@@ -101,7 +97,9 @@ if __name__ == "__main__":
     )
 
     loss_fn = BCEWithLogitsLoss()
-    optimizer = AdamW(model.classifier.parameters(), lr=get_lr(0), betas=(0.9, 0.999), fused=True)
+    optimizer = AdamW(
+        model.classifier.parameters(), lr=get_lr(0), betas=(0.9, 0.999), fused=True
+    )
 
     lr = get_lr(0)
     norm = -1
@@ -111,6 +109,7 @@ if __name__ == "__main__":
 
     history_path = TRAINING_HISTORY_PATH + f"finetune/training_history_finetune_{model_name}_{args.dataset_name}.csv"
     
+
     with open(history_path, mode="w", newline="") as f:
         writer = csv.DictWriter(
             f,
@@ -160,7 +159,7 @@ if __name__ == "__main__":
             if len(tokens_per_sec_list) > 100:
                 tokens_per_sec_list.pop(0)
             tokens_per_sec_avg = sum(tokens_per_sec_list) / len(tokens_per_sec_list)
-            
+
             print(
                 f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec_avg:.2f}"
             )
@@ -175,7 +174,7 @@ if __name__ == "__main__":
                     param_group["lr"] = lr
                 epoch_loss += loss_accum.item() * grad_accum_steps
                 loss_accum = 0.0
-                
+
         avg_loss = epoch_loss / len(train_loader)
 
         val_metrics = evaluate_2gpus(model, val_loader)
@@ -203,4 +202,3 @@ if __name__ == "__main__":
                 + f"finetune/finetuned_model_{model_name}_{args.dataset_name}.pt",
             )
             print(f"New best classifier saved (val accuracy: {best_val_acc:.4f})")
-

@@ -193,7 +193,7 @@ def idx2csv(
     # init csv
     with open(save_path, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
-        writer.writerow(["text", "label"])
+        writer.writerow(["text", "label", "data", "model"])
 
     # iterate through every data and model combination
     for data in tqdm(df["data"].unique()):
@@ -219,7 +219,7 @@ def idx2csv(
                 writer = csv.writer(file)
                 for i in range(len(df_subset)):
                     text = df_subset.iloc[i]["text"]
-                    writer.writerow([text, label])
+                    writer.writerow([text, label, data, model])
 
 
 if __name__ == "__main__":
