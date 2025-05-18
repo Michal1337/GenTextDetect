@@ -89,7 +89,7 @@ if __name__ == "__main__":
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=1,
+        batch_size=args.batch_size,
         shuffle=False,
         collate_fn=lambda batch: collate_fn_longest(batch, tokenizer),
         sampler=val_sampler,
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     max_lr = config["start_lr"]
     min_lr = max_lr * 0.1
     warmup_steps = len(train_loader) // grad_accum_steps
-    max_steps = 3 * len(train_loader) // grad_accum_steps
+    max_steps = 4 * len(train_loader) // grad_accum_steps
 
     def get_lr(it):
         if it < warmup_steps:
@@ -153,9 +153,9 @@ if __name__ == "__main__":
     norm = -1
     best_val_acc = -1
     step = 0
+    tokens_per_sec_list = []
 
-    history_path = TRAINING_HISTORY_PATH
-        + f"finetune/training_history_finetune_{model_name}_{args.dataset_name}.csv"
+    history_path = TRAINING_HISTORY_PATH + f"finetune/training_history_finetune_{model_name}_{args.dataset_name}.csv"
     
     if master_process:
         with open(history_path, mode="w", newline="") as f:
@@ -197,9 +197,8 @@ if __name__ == "__main__":
                 mask = labels.view(-1) != -100
                 labels = labels.view(-1)[mask].float()
                 outputs = outputs.view(-1)[mask]
-                loss = loss_fn(outputs, labels)
+                loss = loss_fn(outputs, labels) / grad_accum_steps
 
-            loss = loss / grad_accum_steps
             loss_accum += loss.detach()
             loss.backward()
             dist.all_reduce(loss_accum, op=dist.ReduceOp.AVG)
@@ -208,9 +207,13 @@ if __name__ == "__main__":
             dt = t1 - t0
             tokens_processed = B * input_ids.shape[1] * ddp_world_size
             tokens_per_sec = tokens_processed / dt
+            tokens_per_sec_list.append(tokens_per_sec)
+            if len(tokens_per_sec_list) > 100:
+                tokens_per_sec_list.pop(0)
+            tokens_per_sec_avg = sum(tokens_per_sec_list) / len(tokens_per_sec_list)
             if master_process:
                 print(
-                    f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}"
+                    f"step {micro_step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec_avg:.2f}"
                 )
 
             if micro_step % grad_accum_steps == 0 or micro_step == len(train_loader):
@@ -246,7 +249,7 @@ if __name__ == "__main__":
                 writer.writerow(record)
 
             # Save best model
-            if val_metrics["accuracy"] > best_val_acc:  # fix, tylko classifier
+            if val_metrics["accuracy"] > best_val_acc:
                 best_val_acc = val_metrics["accuracy"]
                 torch.save(
                     raw_model.classifier.state_dict(),

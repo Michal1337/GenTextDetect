@@ -154,8 +154,7 @@ if __name__ == "__main__":
     best_val_acc = -1
     step = 0
 
-    history_path = TRAINING_HISTORY_PATH
-        + f"baseline/training_history_baseline_{args.model_size}_{args.dataset_name}.csv"
+    history_path = TRAINING_HISTORY_PATH + f"baseline/training_history_baseline_{args.model_size}_{args.dataset_name}.csv"
         
     if master_process:
         with open(history_path, mode="w", newline="") as f:

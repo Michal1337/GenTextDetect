@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=baseline      # Job name
-#SBATCH --output=output_large_large.log           # Standard output log
-#SBATCH --error=error_large_large.log             # Standard error log
+#SBATCH --output=outputlog           # Standard output log
+#SBATCH --error=error.log             # Standard error log
 #SBATCH --time=120:00:00               # Time limit
 #SBATCH --gres=gpu:2                  # Request 2 GPUs
 #SBATCH --mem=96G                     # Memory request
@@ -33,4 +33,4 @@ eval "$(pyenv virtualenv-init -)"
 # torchrun --nproc_per_node=2 --master_port=29502 training_baseline.py large master-mini 10 4
 # torchrun --nproc_per_node=2 --master_port=29502 training_baseline.py large master-small 10 4
 # torchrun --nproc_per_node=2 --master_port=29502 training_baseline.py large master-medium 10 4
-torchrun --nproc_per_node=2 --master_port=29503 training_baseline.py large master-large 10 4
+torchrun --nproc_per_node=2 --master_port=29505 training_baseline.py large master-large 10 4

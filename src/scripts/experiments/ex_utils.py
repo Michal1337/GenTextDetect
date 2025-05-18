@@ -175,3 +175,56 @@ def evaluate(
         return metrics
 
     return {}  # Other ranks return empty
+
+def evaluate_2gpus(
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+) -> Dict[str, float]:
+    model.eval()
+    loss_fn = BCEWithLogitsLoss()
+
+    preds_local, targets_local = [], []
+    total_loss = torch.tensor(0.0)
+    num_batches = torch.tensor(0.0)
+
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Evaluating"):
+            input_ids = batch["input_ids"].to(model.load_device)
+            labels = batch["labels"].to(model.load_device)
+            attention_mask = batch["attention_mask"].to(model.infer_device)
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                outputs = model(input_ids, attention_mask)
+
+                mask = (labels.view(-1) != -100).cpu()
+                labels = labels.view(-1)[mask].float()
+                outputs = outputs.view(-1)[mask].to(model.load_device)
+
+                loss = loss_fn(outputs, labels)
+
+            total_loss += loss.item()
+            num_batches += 1
+
+            logits = torch.sigmoid(outputs).squeeze().float().cpu().numpy()
+            labels = labels.squeeze().cpu().numpy()
+
+            preds_local.extend(logits.tolist())
+            targets_local.extend(labels.tolist())
+
+    # Gather predictions and labels from all processes
+    preds_all = torch.tensor(preds_local, dtype=torch.float32).numpy()
+    targets_all = torch.tensor(targets_local, dtype=torch.float32).numpy()
+
+    targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+    bin_preds = (preds_all >= 0.5).astype(int)
+
+    metrics = {
+        "loss": total_loss.item() / max(num_batches.item(), 1),
+        "accuracy": accuracy_score(targets_all, bin_preds),
+        "balanced_accuracy": balanced_accuracy_score(targets_all, bin_preds),
+        "precision": precision_score(targets_all, bin_preds),
+        "recall": recall_score(targets_all, bin_preds),
+        "f1": f1_score(targets_all, bin_preds),
+        "auc": roc_auc_score(targets_all, preds_all),
+    }
+
+    return metrics
