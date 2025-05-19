@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     if args.iter == 0:
         master_testset_path = DATASETS_PATH + "master-testset/test.csv"
-        os.mkdir(DATASETS_PATH + "master-testset-hard", exist_ok=True)
+        os.mkdir(DATASETS_PATH + "master-testset-hard")
         csv_path = DATASETS_PATH + "master-testset-hard/test0.csv"
 
         df = pd.read_csv(master_testset_path)
