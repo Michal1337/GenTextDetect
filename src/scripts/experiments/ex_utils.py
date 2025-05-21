@@ -86,6 +86,7 @@ def collate_fn_longest(
         truncation=True,
         padding="longest",
         return_tensors="pt",
+        max_length=MAX_TEXT_LENGTH,
     )
 
     labels_padded = [
@@ -137,9 +138,9 @@ def evaluate(
             total_loss += loss.item()
             num_batches += 1
 
-            logits = torch.sigmoid(outputs).squeeze().float().cpu().numpy()
-            labels = labels.squeeze().cpu().numpy()
-
+            logits = torch.sigmoid(outputs).float().cpu().view(-1).numpy()
+            labels = labels.cpu().view(-1).numpy()
+            
             preds_local.extend(logits.tolist())
             targets_local.extend(labels.tolist())
 
@@ -190,14 +191,14 @@ def evaluate_2gpus(
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating"):
             input_ids = batch["input_ids"].to(model.load_device)
-            labels = batch["labels"].to(model.load_device)
-            attention_mask = batch["attention_mask"].to(model.infer_device)
+            attention_mask = batch["attention_mask"].to(model.load_device)
+            labels = batch["labels"].to(model.infer_device)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 outputs = model(input_ids, attention_mask)
 
                 mask = (labels.view(-1) != -100).cpu()
                 labels = labels.view(-1)[mask].float()
-                outputs = outputs.view(-1)[mask].to(model.load_device)
+                outputs = outputs.view(-1)[mask].to(model.infer_device)
 
                 loss = loss_fn(outputs, labels)
 
@@ -228,3 +229,159 @@ def evaluate_2gpus(
     }
 
     return metrics
+
+
+def evaluate_test(
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+    device: str,
+    t: str,
+    master_process: bool,
+) -> Dict[str, float]:
+    model.eval()
+    loss_fn = BCEWithLogitsLoss()
+
+    preds_local, targets_local, preds_sample_local = [], [], []
+    total_loss = torch.tensor(0.0, device=device)
+    num_batches = torch.tensor(0.0, device=device)
+
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Evaluating", disable=not master_process):
+            input_ids = batch["input_ids"].to(device)
+            labels = batch["labels"].to(device)
+
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                if t == "baseline":
+                    outputs = model(input_ids)
+                elif t == "finetune":
+                    attention_mask = batch["attention_mask"].to(device)
+                    outputs = model(input_ids, attention_mask)
+                else:
+                    raise ValueError(
+                        "Invalid training type. Use 'baseline' or 'finetune'."
+                    )
+
+                mask = labels.view(-1) != -100
+                labels = labels.view(-1)[mask].float()
+                outputs = outputs.view(-1)[mask]
+
+                loss = loss_fn(outputs, labels)
+
+            mask_outputs = labels != -100
+            outputs = torch.sigmoid(outputs)
+            masked_outputs = torch.where(mask_outputs, outputs, torch.tensor(0.0))
+            row_sums = masked_outputs.sum(dim=1)
+            valid_counts = mask_outputs.sum(dim=1)
+            mean_per_row = (row_sums / valid_counts).cpu().numpy()
+
+            total_loss += loss.item()
+            num_batches += 1
+
+            logits = torch.sigmoid(outputs).squeeze().float().cpu().numpy()
+            labels = labels.squeeze().cpu().numpy()
+
+            preds_local.extend(logits.tolist())
+            targets_local.extend(labels.tolist())
+            preds_sample_local.extend(mean_per_row.tolist())
+
+    # Gather predictions and labels from all processes
+    preds_tensor = torch.tensor(preds_local, dtype=torch.float32, device=device)
+    targets_tensor = torch.tensor(targets_local, dtype=torch.float32, device=device)
+    preds_sample_tensor = torch.tensor(
+        preds_sample_local, dtype=torch.float32, device=device
+    )
+
+    preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
+    targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
+    preds_sample_list = [torch.zeros_like(preds_sample_tensor) for _ in range(2)]
+
+    dist.all_gather(preds_list, preds_tensor)
+    dist.all_gather(targets_list, targets_tensor)
+    dist.all_gather(preds_sample_list, preds_sample_tensor)
+    dist.all_reduce(total_loss, op=dist.ReduceOp.SUM)
+    dist.all_reduce(num_batches, op=dist.ReduceOp.SUM)
+
+    if master_process:
+        preds_all = torch.cat(preds_list).cpu().numpy()
+        targets_all = torch.cat(targets_list).cpu().numpy()
+        preds_sample_all = torch.cat(preds_sample_list).cpu().numpy()
+
+        targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+        bin_preds = (preds_all >= 0.5).astype(int)
+
+        metrics = {
+            "loss": total_loss.item() / max(num_batches.item(), 1),
+            "accuracy": accuracy_score(targets_all, bin_preds),
+            "balanced_accuracy": balanced_accuracy_score(targets_all, bin_preds),
+            "precision": precision_score(targets_all, bin_preds),
+            "recall": recall_score(targets_all, bin_preds),
+            "f1": f1_score(targets_all, bin_preds),
+            "auc": roc_auc_score(targets_all, preds_all),
+        }
+
+        return metrics, preds_sample_all
+
+    return {}  # Other ranks return empty
+
+
+def evaluate_2gpus_test(
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+) -> Dict[str, float]:
+    model.eval()
+    loss_fn = BCEWithLogitsLoss()
+
+    preds_local, targets_local, preds_sample_local = [], [], []
+    total_loss = torch.tensor(0.0)
+    num_batches = torch.tensor(0.0)
+
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Evaluating"):
+            input_ids = batch["input_ids"].to(model.load_device)
+            attention_mask = batch["attention_mask"].to(model.load_device)
+            labels = batch["labels"].to(model.infer_device)
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                outputs = model(input_ids, attention_mask)
+
+                mask = (labels.view(-1) != -100).cpu()
+                labels = labels.view(-1)[mask].float()
+                outputs = outputs.view(-1)[mask].to(model.infer_device)
+
+                loss = loss_fn(outputs, labels)
+
+            mask_outputs = labels != -100
+            outputs = torch.sigmoid(outputs)
+            masked_outputs = torch.where(mask_outputs, outputs, torch.tensor(0.0))
+            row_sums = masked_outputs.sum(dim=1)
+            valid_counts = mask_outputs.sum(dim=1)
+            mean_per_row = (row_sums / valid_counts).cpu().numpy()
+
+            total_loss += loss.item()
+            num_batches += 1
+
+            logits = torch.sigmoid(outputs).squeeze().float().cpu().numpy()
+            labels = labels.squeeze().cpu().numpy()
+
+            preds_local.extend(logits.tolist())
+            targets_local.extend(labels.tolist())
+            preds_sample_local.extend(mean_per_row.tolist())
+
+    # Gather predictions and labels from all processes
+    preds_all = torch.tensor(preds_local, dtype=torch.float32).numpy()
+    targets_all = torch.tensor(targets_local, dtype=torch.float32).numpy()
+    preds_sample_all = torch.tensor(preds_sample_local, dtype=torch.float32).numpy()
+
+    targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+    bin_preds = (preds_all >= 0.5).astype(int)
+
+    metrics = {
+        "loss": total_loss.item() / max(num_batches.item(), 1),
+        "accuracy": accuracy_score(targets_all, bin_preds),
+        "balanced_accuracy": balanced_accuracy_score(targets_all, bin_preds),
+        "precision": precision_score(targets_all, bin_preds),
+        "recall": recall_score(targets_all, bin_preds),
+        "f1": f1_score(targets_all, bin_preds),
+        "auc": roc_auc_score(targets_all, preds_all),
+    }
+
+    return metrics, preds_sample_all

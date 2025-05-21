@@ -164,6 +164,7 @@ if __name__ == "__main__":
         csv_path = DATASETS_PATH + f"master-testset-hard/test{args.iter}.csv"
 
         df = pd.read_csv(csv_path_old)
+        df.dropna(inplace=True)
 
         prompts = [
             [

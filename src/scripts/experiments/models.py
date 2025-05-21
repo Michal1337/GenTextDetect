@@ -103,7 +103,7 @@ class FineTuneClassifierPhi(nn.Module):
 
 
 class FineTuneClassifier2GPUs(nn.Module):
-    def __init__(self, base_model_path: str, num_labels: int, load_device_idx: int, infer_device_idx: int):
+    def __init__(self, base_model_path: str, num_labels: int, load_device_idx: int = 0, infer_device_idx: int = 1) -> None:
         super(FineTuneClassifier2GPUs, self).__init__()
         self.load_device = torch.device(f"cuda:{load_device_idx}")
         self.infer_device = torch.device(f"cuda:{infer_device_idx}")
@@ -123,7 +123,15 @@ class FineTuneClassifier2GPUs(nn.Module):
             device=self.infer_device,
         )
 
-    def forward(self, input_ids, attention_mask):
+        @classmethod
+        def from_classifier_head(
+            cls, base_model_path: str, path: str, num_labels: int
+        ) -> nn.Module:
+            model = cls(base_model_path, num_labels)
+            model.classifier.load_state_dict(torch.load(path))
+            return model
+
+    def forward(self, input_ids: torch.tensor, attention_mask: torch.tensor) -> torch.tensor:
         outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
         outputs = outputs.last_hidden_state.to(self.infer_device)
 

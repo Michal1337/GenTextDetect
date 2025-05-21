@@ -13,6 +13,7 @@ STATS_PATH: str = "../../../data/stats/"
 DATASETS_PATH: str = "../../../data/datasets/"
 TRAINING_HISTORY_PATH: str = "../../../logs/"
 CHECKPOINTS_PATH: str = "../../../checkpoints/"
+PREDICTIONS_PATH: str = "../../../predictions/"
 
 # Params for master-testset-hard
 NUM_SAMPLES: int = 10_000
@@ -21,6 +22,8 @@ MAX_TOKENS_GENERATE: int = 16_384
 
 # Maximum text length for LLMs finetuning
 MAX_TEXT_LENGTH: int = 8192
+
+MODEL_PATH: str = "/mnt/evafs/groups/re-com/mgromadzki/llms/"
 
 SELECTED_FEATURES1: List[str] = [
     "noun_ratio",
