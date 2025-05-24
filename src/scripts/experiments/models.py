@@ -184,7 +184,7 @@ class BaselineClassifier(nn.Module):
             diagonal=1,
         )
 
-        output = self.transformer(embeddings, mask=causal_mask)
+        output = self.transformer(embeddings, mask=causal_mask) 
 
         B, T, C = output.shape
         all_tokens_hidden = output  # (B, T, C)

@@ -1,0 +1,1 @@
+model,train_dataset,test_datasettest_loss,test_accuracy,test_balanced_accuracy,test_precision,test_recall,test_f1,test_auc

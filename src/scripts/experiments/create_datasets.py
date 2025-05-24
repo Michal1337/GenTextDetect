@@ -136,15 +136,15 @@ def create_dataset_idx(
                 non_empty_datas = [
                     d for d in df_main["data"].unique() if d not in empty_datas
                 ]
-                weights_empty = [
+                weights_non_empty = [
                     (
                         df_main.loc[df_main["data"] == ds, "num_tokens"]
                         * df_main.loc[df_main["data"] == ds, "prob"]
                     ).sum()
                     for ds in non_empty_datas
                 ]
-                probs_empty = np.array(weights_empty) / np.sum(weights_empty)
-                data_new = np.random.choice(non_empty_datas, p=probs_empty)
+                probs_non_empty = np.array(weights_non_empty) / np.sum(weights_non_empty)
+                data_new = np.random.choice(non_empty_datas, p=probs_non_empty)
                 mult = (
                     df_main[(df_main["data"] == data) & (df_main["model"] == model)][
                         "avg_token_per_sample"

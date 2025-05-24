@@ -70,7 +70,7 @@ def collate_fn(
         torch.where(t == 0, torch.tensor(-100), torch.tensor(label))
         for t, label in zip(encodings["attention_mask"], labels)
     ]
-    labels_padded = torch.cat(labels_padded)
+    labels_padded = torch.stack(labels_padded)
     encodings["labels"] = labels_padded
 
     return encodings
@@ -93,7 +93,7 @@ def collate_fn_longest(
         torch.where(t == 0, torch.tensor(-100), torch.tensor(label))
         for t, label in zip(encodings["attention_mask"], labels)
     ]
-    labels_padded = torch.cat(labels_padded)
+    labels_padded = torch.stack(labels_padded)
     encodings["labels"] = labels_padded
 
     return encodings

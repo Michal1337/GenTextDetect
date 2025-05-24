@@ -78,15 +78,15 @@ BASELINE_MODELS: Dict[str, Dict[str, Union[int, float]]] = {
     },
 }
 
-NUM_TOKENS_DETECT_LLM: int = 60_000_000
-NUM_TOKENS_DETECT_LLM_FAMILY: int = 100_000_000
+NUM_TOKENS_DETECT_LLM: int = 30_000_000
+NUM_TOKENS_DETECT_LLM_FAMILY: int = 60_000_000
 
 DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
-    "master-testset": {
-        "num_tokens": 100_000_000,
-        "cols_c0": ["human"],
-        "reverse_labels": False,
-    },
+    # "master-testset": {
+    #     "num_tokens": 100_000_000,
+    #     "cols_c0": ["human"],
+    #     "reverse_labels": False,
+    # },
     # "master-mini": {
     #     "num_tokens": 10_000_000,
     #     "cols_c0": ["human"],
@@ -159,8 +159,8 @@ DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
     #     "cols_c0": ["Phi-4-mini-instruct"],
     #     "reverse_labels": True,
     # },
-    # "detect-phi-4": {"num_tokens": NUM_TOKENS_DETECT_LLM, "cols_c0": ["phi-4"]},
-    # # Mistral
+    # "detect-phi-4": {"num_tokens": NUM_TOKENS_DETECT_LLM, "cols_c0": ["phi-4"], "reverse_labels": True,},
+    # Mistral
     # "detect-Mistral-Nemo-Instruct-2407": {
     #     "num_tokens": NUM_TOKENS_DETECT_LLM,
     #     "cols_c0": ["Mistral-Nemo-Instruct-2407"],
@@ -213,51 +213,51 @@ DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
     #     "cols_c0": ["Falcon3-3B-Instruct"],
     #     "reverse_labels": True,
     # },
-    # # family detection
-    # "detect-llama-family": {
-    #     "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
-    #     "cols_c0": [
-    #         "Llama-3.1-8B-Instruct",
-    #         "Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
-    #         "Llama-3.2-3B-Instruct",
-    #         "Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
-    #     ],
-    #     "reverse_labels": True,
-    # },
-    # "detect-phi-family": {
-    #     "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
-    #     "cols_c0": [
-    #         "Phi-3-mini-128k-instruct",
-    #         "Phi-3-small-128k-instruct",
-    #         "Phi-3-medium-128k-instruct",
-    #         "Phi-3.5-mini-instruct",
-    #         "Phi-4-mini-instruct",
-    #         "phi-4",
-    #     ],
-    #     "reverse_labels": True,
-    # },
-    # "detect-mistral-family": {
-    #     "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
-    #     "cols_c0": ["Mistral-Nemo-Instruct-2407", "Ministral-8B-Instruct-2410"],
-    #     "reverse_labels": True,
-    # },
-    # "detect-qwen-family": {
-    #     "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
-    #     "cols_c0": [
-    #         "Qwen2-72B-Instruct-AWQ",
-    #         "Qwen2-7B-Instruct",
-    #         "Qwen2.5-72B-Instruct-AWQ",
-    #         "Qwen2.5-14B-Instruct",
-    #         "Qwen2.5-7B-Instruct",
-    #         "Qwen2.5-3B-Instruct",
-    #     ],
-    #     "reverse_labels": True,
-    # },
-    # "detect-falcon-family": {
-    #     "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
-    #     "cols_c0": ["Falcon3-7B-Instruct", "Falcon3-3B-Instruct"],
-    #     "reverse_labels": True,
-    # },
+    # family detection
+    "detect-llama-family": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
+        "cols_c0": [
+            "Llama-3.1-8B-Instruct",
+            "Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+            "Llama-3.2-3B-Instruct",
+            "Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
+        ],
+        "reverse_labels": True,
+    },
+    "detect-phi-family": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
+        "cols_c0": [
+            "Phi-3-mini-128k-instruct",
+            "Phi-3-small-128k-instruct",
+            "Phi-3-medium-128k-instruct",
+            "Phi-3.5-mini-instruct",
+            "Phi-4-mini-instruct",
+            "phi-4",
+        ],
+        "reverse_labels": True,
+    },
+    "detect-mistral-family": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
+        "cols_c0": ["Mistral-Nemo-Instruct-2407", "Ministral-8B-Instruct-2410"],
+        "reverse_labels": True,
+    },
+    "detect-qwen-family": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
+        "cols_c0": [
+            "Qwen2-72B-Instruct-AWQ",
+            "Qwen2-7B-Instruct",
+            "Qwen2.5-72B-Instruct-AWQ",
+            "Qwen2.5-14B-Instruct",
+            "Qwen2.5-7B-Instruct",
+            "Qwen2.5-3B-Instruct",
+        ],
+        "reverse_labels": True,
+    },
+    "detect-falcon-family": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM_FAMILY,
+        "cols_c0": ["Falcon3-7B-Instruct", "Falcon3-3B-Instruct"],
+        "reverse_labels": True,
+    },
 }
 
 TRAINING_CONFIG: Dict[str, Dict[str, Union[int, float]]] = {
