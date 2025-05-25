@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=2,
+        batch_size=args.batch_size,
         shuffle=False,
         collate_fn=lambda batch: collate_fn(batch, tokenizer),
         sampler=val_sampler,

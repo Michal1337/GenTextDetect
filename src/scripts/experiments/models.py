@@ -70,25 +70,27 @@ class FineTuneClassifierPhi(nn.Module):
     def forward(
         self, input_ids: torch.tensor, attention_mask: torch.tensor
     ) -> torch.tensor:
-        if "phi-4" in self.base_model_path.lower():
-            outputs = self.base_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                output_hidden_states=True,
-                output_attentions=False,
-                return_dict=True,
-                use_cache=True,
-                logits_to_keep=1,
-            )
-        else:
-            outputs = self.base_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                output_hidden_states=True,
-                output_attentions=False,
-                return_dict=True,
-                use_cache=False,
-            )
+        self.base_model.eval()
+        with torch.no_grad():
+            if "phi-4" in self.base_model_path.lower():
+                outputs = self.base_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    output_hidden_states=True,
+                    output_attentions=False,
+                    return_dict=True,
+                    use_cache=False,
+                    logits_to_keep=1,
+                )
+            else:
+                outputs = self.base_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    output_hidden_states=True,
+                    output_attentions=False,
+                    return_dict=True,
+                    use_cache=False,
+                )
 
         B, T, C = outputs.hidden_states[-1].shape
         all_tokens_hidden = outputs.hidden_states[-1]  # (B, T, C)

@@ -14,8 +14,8 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
 from models import FineTuneClassifier, FineTuneClassifierPhi, BaselineClassifier
-from ex_utils import TextDataset, collate_fn_longest
-from ex_params import CHECKPOINTS_PATH, DATASETS_PATH, BASELINE_MODELS, MODEL_PATH, PREDICTIONS_PATH, TRAINING_HISTORY_PATH, SEED
+from ex_utils import collate_fn_longest, TextDataset, evaluate
+from ex_params import CHECKPOINTS_PATH, DATASETS_PATH, BASELINE_MODELS, MODEL_PATH, PREDICTIONS_PATH, TRAINING_HISTORY_PATH, SEED, PAD_TOKENS
 
 import os
 from typing import Dict, List, Union
@@ -31,6 +31,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from ex_params import MAX_TEXT_LENGTH
+
 
 def collate_fn(
     batch: List[Dict[str, torch.tensor]], tokenizer: AutoTokenizer
@@ -92,7 +93,7 @@ def evaluate_test(
                 loss = loss_fn(outputs_flat, labels_flat)
 
             mask_outputs = (labels != -100).cpu()
-            outputs = torch.sigmoid(outputs).squeeze(-1).float().cpu()
+            outputs = torch.sigmoid(outputs.float()).squeeze(-1).cpu()
             masked_outputs = torch.where(mask_outputs, outputs, torch.tensor(0.0))
             row_sums = masked_outputs.sum(dim=1)
             valid_counts = mask_outputs.sum(dim=1)
@@ -103,29 +104,29 @@ def evaluate_test(
 
             logits = torch.sigmoid(outputs_flat).float().cpu().view(-1).numpy()
             labels_flat = labels_flat.cpu().view(-1).numpy()
-            print(logits.shape, mean_per_row.shape)
+
             preds_local.extend(logits.tolist())
             targets_local.extend(labels_flat.tolist())
             preds_sample_local.extend(mean_per_row.tolist())
 
     # Gather predictions and labels from all processes
-    print("XD1")
     preds_tensor = torch.tensor(preds_local, dtype=torch.float32, device=device)
     targets_tensor = torch.tensor(targets_local, dtype=torch.float32, device=device)
     preds_sample_tensor = torch.tensor(
         preds_sample_local, dtype=torch.float32, device=device
     )
+
     print(preds_sample_tensor.shape, preds_tensor.shape, targets_tensor.shape)
     preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
     targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
     preds_sample_list = [torch.zeros_like(preds_sample_tensor) for _ in range(2)]
-    print("XD2")
+
     dist.all_gather(preds_list, preds_tensor)
     dist.all_gather(targets_list, targets_tensor)
     dist.all_gather(preds_sample_list, preds_sample_tensor)
     dist.all_reduce(total_loss, op=dist.ReduceOp.SUM)
     dist.all_reduce(num_batches, op=dist.ReduceOp.SUM)
-    print("XD3")
+
     if master_process:
         preds_all = torch.cat(preds_list).cpu().numpy()
         targets_all = torch.cat(targets_list).cpu().numpy()
@@ -216,7 +217,8 @@ def path2model(path: str):
 def get_test_loaders(batch_size, collate_func, tokenizer):
     test_loaders = []
     df_test = pd.read_csv(os.path.join(DATASETS_PATH, "master-testset/test.csv"))
-    test_dataset = TextDataset(df_test["text"].tolist()[:200], df_test["label"].tolist()[:200])
+    df_test = df_test.head(100)
+    test_dataset = TextDataset(df_test["text"].tolist(), df_test["label"].tolist())
     test_sampler = DistributedSampler(
         test_dataset,
         num_replicas=ddp_world_size,
@@ -231,6 +233,7 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
         collate_fn=lambda batch: collate_func(batch, tokenizer),
         sampler=test_sampler,
     )
+
     test_loaders.append((test_loader, df_test, "master-testset"))
 
     for level in range(1):
@@ -256,8 +259,6 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
 
 
 if __name__ == "__main__":
-
-
     checkpoints = get_paths(CHECKPOINTS_PATH)
 
     init_process_group(backend="nccl")
@@ -305,14 +306,13 @@ if __name__ == "__main__":
         model, tokenizer = path2model(checkpoint)
         collate_func = collate_fn if model_type == "baseline" else collate_fn_longest
         
-        test_loaders = get_test_loaders(2, collate_func, tokenizer)
+        test_loaders = get_test_loaders(4, collate_func, tokenizer)
         model = model.to(device)
         if model_type == "baseline":
             model = torch.compile(model)
         model = DDP(model, device_ids=[ddp_local_rank])
 
         for test_loader, df_test, test_name in test_loaders:
-            
             metrics, preds = evaluate_test(
                 model,
                 test_loader,
@@ -322,14 +322,12 @@ if __name__ == "__main__":
             )
 
             if master_process:
-                print(preds)
-                print(type(preds), preds.shape)
+
                 save_path = checkpoint.split("/")[-1]
                 save_path = save_path.replace(".pt", "").replace("baseline_", "").replace("finetuned_model_", "")
 
                 df_preds = pd.DataFrame(preds, columns=["preds"])
-                df_preds["data"] = df_test["data"].head(100)
-                df_preds["model"] = df_test["model"].head(100)
+   
                 df_preds.to_csv(os.path.join(PREDICTIONS_PATH, f"{model_type}/preds_{test_name}_{save_path}.csv"), index=False)
 
                 model_name = checkpoint.split("/")[-1].split("_")[-2]
@@ -339,7 +337,7 @@ if __name__ == "__main__":
                     "model_name": model_name,
                     "train_dataset": train_dataset,
                     "test_dataset": test_name,
-                    **{f"val_{k}": v for k, v in val_metrics.items()},
+                    **{f"val_{k}": v for k, v in metrics.items()},
                 }
 
                 with open(eval_path, mode="a", newline="") as f:

@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=toy3      # Job name
-#SBATCH --output=toy3.log           # Standard output log
-#SBATCH --error=toy3.log             # Standard error log
+#SBATCH --job-name=tmp      # Job name
+#SBATCH --output=tmp.log           # Standard output log
+#SBATCH --error=tmp.log             # Standard error log
 #SBATCH --time=24:00:00               # Time limit
 #SBATCH --gres=gpu:2                  # Request 2 GPUs
 #SBATCH --mem=96G                     # Memory request
@@ -34,3 +34,5 @@ eval "$(pyenv virtualenv-init -)"
 # torchrun --nproc_per_node=2 --master_port=29502 training_baseline.py large master-small 10 4
 # torchrun --nproc_per_node=2 --master_port=29502 training_baseline.py large master-medium 10 4
 # torchrun --nproc_per_node=2 --master_port=29505 training_baseline.py large master-large 10 4
+
+torchrun --nproc_per_node=2 --master_port=29525 training_baseline.py mini detect-gpt-4.1-nano-2025-04-14 10 32
