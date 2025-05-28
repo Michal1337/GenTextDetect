@@ -107,7 +107,6 @@ if __name__ == "__main__":
         )
 
     model.to(device)
-    # model = torch.compile(model)
     model = DDP(model, device_ids=[ddp_local_rank])
     raw_model = model.module
 

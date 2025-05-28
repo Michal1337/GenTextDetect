@@ -145,11 +145,18 @@ def evaluate(
             targets_local.extend(labels.tolist())
 
     # Gather predictions and labels from all processes
+    world_size = dist.get_world_size()
+
     preds_tensor = torch.tensor(preds_local, dtype=torch.float32, device=device)
     targets_tensor = torch.tensor(targets_local, dtype=torch.float32, device=device)
 
-    preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
-    targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
+    local_size = torch.tensor([preds_tensor.size(0)], device=device)
+    sizes_list = [torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)]
+    dist.all_gather(sizes_list, local_size)
+
+    # Prepare tensor_list with appropriate sizes
+    preds_list = [torch.zeros(size, dtype=preds_tensor.dtype, device=device) for size in sizes_list]
+    targets_list = [torch.zeros(size, dtype=targets_tensor.dtype, device=device) for size in sizes_list]
 
     dist.all_gather(preds_list, preds_tensor)
     dist.all_gather(targets_list, targets_tensor)
@@ -158,9 +165,9 @@ def evaluate(
 
     if master_process:
         preds_all = torch.cat(preds_list).cpu().numpy()
-        targets_all = torch.cat(targets_list).cpu().numpy()
+        targets_all = torch.cat(targets_list).cpu().numpy().astype(int)
 
-        targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+        # targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
         bin_preds = (preds_all >= 0.5).astype(int)
 
         metrics = {

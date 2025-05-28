@@ -1,1 +1,2 @@
 model,train_dataset,test_datasettest_loss,test_accuracy,test_balanced_accuracy,test_precision,test_recall,test_f1,test_auc
+large,master-medium.pt,master-testset,0.33244969294621396,0.8737346830047948,0.8737346830047948,1.0,0.8737346830047948,0.9326130224623258,nan

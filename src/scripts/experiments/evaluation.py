@@ -14,7 +14,7 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
 from models import FineTuneClassifier, FineTuneClassifierPhi, BaselineClassifier
-from ex_utils import collate_fn_longest, TextDataset, evaluate
+from ex_utils import collate_fn, collate_fn_longest, TextDataset, evaluate
 from ex_params import CHECKPOINTS_PATH, DATASETS_PATH, BASELINE_MODELS, MODEL_PATH, PREDICTIONS_PATH, TRAINING_HISTORY_PATH, SEED, PAD_TOKENS
 
 import os
@@ -32,28 +32,6 @@ from transformers import AutoTokenizer
 
 from ex_params import MAX_TEXT_LENGTH
 
-
-def collate_fn(
-    batch: List[Dict[str, torch.tensor]], tokenizer: AutoTokenizer
-) -> Dict[str, torch.tensor]:
-    texts = [item["text"] for item in batch]
-    labels = [item["label"] for item in batch]
-    encodings = tokenizer(
-        texts,
-        truncation=True,
-        padding="max_length",
-        return_tensors="pt",
-        max_length=MAX_TEXT_LENGTH,
-    )
-
-    labels_padded = [
-        torch.where(t == 0, torch.tensor(-100), torch.tensor(label))
-        for t, label in zip(encodings["attention_mask"], labels)
-    ]
-    labels_padded = torch.stack(labels_padded)
-    encodings["labels"] = labels_padded
-
-    return encodings
 
 
 def evaluate_test(
@@ -116,23 +94,35 @@ def evaluate_test(
         preds_sample_local, dtype=torch.float32, device=device
     )
 
-    print(preds_sample_tensor.shape, preds_tensor.shape, targets_tensor.shape)
-    preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
-    targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
-    preds_sample_list = [torch.zeros_like(preds_sample_tensor) for _ in range(2)]
+    world_size = dist.get_world_size()
+
+    local_pred_size = torch.tensor([preds_tensor.size(0)], device=device)
+    local_sample_size = torch.tensor([preds_sample_tensor.size(0)], device=device)
+
+    
+    pred_sizes = [torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)]
+    sample_sizes = [torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)]
+
+    dist.all_gather(pred_sizes, local_pred_size)
+    dist.all_gather(sample_sizes, local_sample_size)
+
+    # Prepare tensor_list with appropriate sizes
+    preds_list = [torch.zeros(size, dtype=preds_tensor.dtype, device=device) for size in pred_sizes]
+    targets_list = [torch.zeros(size, dtype=targets_tensor.dtype, device=device) for size in pred_sizes]
+    preds_sample_list = [torch.zeros(size, dtype=preds_sample_tensor.dtype, device=device) for size in sample_sizes]
 
     dist.all_gather(preds_list, preds_tensor)
     dist.all_gather(targets_list, targets_tensor)
     dist.all_gather(preds_sample_list, preds_sample_tensor)
     dist.all_reduce(total_loss, op=dist.ReduceOp.SUM)
     dist.all_reduce(num_batches, op=dist.ReduceOp.SUM)
-
+    
     if master_process:
         preds_all = torch.cat(preds_list).cpu().numpy()
-        targets_all = torch.cat(targets_list).cpu().numpy()
+        targets_all = torch.cat(targets_list).cpu().numpy().astype(int)
         preds_sample_all = torch.cat(preds_sample_list).cpu().numpy()
 
-        targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+        # targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
         bin_preds = (preds_all >= 0.5).astype(int)
 
         metrics = {

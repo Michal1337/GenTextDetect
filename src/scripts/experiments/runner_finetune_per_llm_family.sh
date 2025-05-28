@@ -21,11 +21,11 @@ eval "$(pyenv virtualenv-init -)"
 
 # Microsoft
 # torchrun --nproc_per_node=2 --master_port=29513 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-mini-128k-instruct detect-phi-family 5 2
-# torchrun --nproc_per_node=2 --master_port=29513 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-small-128k-instruct detect-phi-family 5 1
-torchrun --nproc_per_node=2 --master_port=29514 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-medium-128k-instruct detect-phi-family 5 1
+# torchrun --nproc_per_node=2 --master_port=29513 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-small-128k-instruct detect-phi-family 5 2
+# torchrun --nproc_per_node=2 --master_port=29514 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-medium-128k-instruct detect-phi-family 5 2
 # torchrun --nproc_per_node=2 --master_port=29513 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3.5-mini-instruct detect-phi-family 5 2
 # torchrun --nproc_per_node=2 --master_port=29513 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-4-mini-instruct detect-phi-family 5 2
-torchrun --nproc_per_node=2 --master_port=29514 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/phi-4 detect-phi-4 detect-phi-family 5 1
+# torchrun --nproc_per_node=2 --master_port=29514 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/phi-4 detect-phi-4 detect-phi-family 5 2
 
 # Mistral
 # torchrun --nproc_per_node=2 --master_port=29512 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/mistralai/Mistral-Nemo-Instruct-2407 detect-mistral-family 5 2

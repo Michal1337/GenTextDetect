@@ -29,7 +29,9 @@ class FineTuneClassifier(nn.Module):
     def forward(
         self, input_ids: torch.tensor, attention_mask: torch.tensor
     ) -> torch.tensor:
-        outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+        self.base_model.eval()
+        with torch.no_grad():
+            outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
 
         B, T, C = outputs.last_hidden_state.shape
         all_tokens_hidden = outputs.last_hidden_state  # (B, T, C)
