@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=detect_gpt      # Job name
-#SBATCH --output=gpt4.log           # Standard output log
-#SBATCH --error=gpt4.log             # Standard error log
+#SBATCH --output=gpt3.log           # Standard output log
+#SBATCH --error=gpt3.log             # Standard error log
 #SBATCH --time=24:00:00               # Time limit
 #SBATCH --gres=gpu:2                  # Request 2 GPUs
 #SBATCH --mem=96G                     # Memory request
@@ -23,11 +23,11 @@ eval "$(pyenv virtualenv-init -)"
 # torchrun --nproc_per_node=2 --master_port=29521 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/meta-llama/Llama-3.2-3B-Instruct detect-gpt-4.1-nano-2025-04-14 5 8
 
 # Microsoft
-# torchrun --nproc_per_node=2 --master_port=29502 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-mini-128k-instruct detect-gpt-4.1-nano-2025-04-14 5 2
-# torchrun --nproc_per_node=2 --master_port=29502 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-small-128k-instruct detect-gpt-4.1-nano-2025-04-14 5 2
+# torchrun --nproc_per_node=2 --master_port=29502 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-mini-128k-instruct detect-gpt-4.1-nano-2025-04-14 5 4
+# torchrun --nproc_per_node=2 --master_port=29540 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-small-128k-instruct detect-gpt-4.1-nano-2025-04-14 5 2
 # torchrun --nproc_per_node=2 --master_port=29515 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-medium-128k-instruct detect-gpt-4.1-nano-2025-04-14 5 2
-# torchrun --nproc_per_node=2 --master_port=29502 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3.5-mini-instruct detect-gpt-4.1-nano-2025-04-14 5 2
-torchrun --nproc_per_node=2 --master_port=29530 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-4-mini-instruct detect-gpt-4.1-nano-2025-04-14 5 2
+# torchrun --nproc_per_node=2 --master_port=29502 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3.5-mini-instruct detect-gpt-4.1-nano-2025-04-14 5 4
+# torchrun --nproc_per_node=2 --master_port=29530 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-4-mini-instruct detect-gpt-4.1-nano-2025-04-14 5 4
 # torchrun --nproc_per_node=2 --master_port=29515 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/phi-4 detect-gpt-4.1-nano-2025-04-14 5 2
 
 # Mistral
