@@ -140,7 +140,7 @@ def evaluate(
 
             logits = torch.sigmoid(outputs).float().cpu().view(-1).numpy()
             labels = labels.cpu().view(-1).numpy()
-            
+
             preds_local.extend(logits.tolist())
             targets_local.extend(labels.tolist())
 
@@ -151,12 +151,20 @@ def evaluate(
     targets_tensor = torch.tensor(targets_local, dtype=torch.float32, device=device)
 
     local_size = torch.tensor([preds_tensor.size(0)], device=device)
-    sizes_list = [torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)]
+    sizes_list = [
+        torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)
+    ]
     dist.all_gather(sizes_list, local_size)
 
     # Prepare tensor_list with appropriate sizes
-    preds_list = [torch.zeros(size, dtype=preds_tensor.dtype, device=device) for size in sizes_list]
-    targets_list = [torch.zeros(size, dtype=targets_tensor.dtype, device=device) for size in sizes_list]
+    preds_list = [
+        torch.zeros(size, dtype=preds_tensor.dtype, device=device)
+        for size in sizes_list
+    ]
+    targets_list = [
+        torch.zeros(size, dtype=targets_tensor.dtype, device=device)
+        for size in sizes_list
+    ]
 
     dist.all_gather(preds_list, preds_tensor)
     dist.all_gather(targets_list, targets_tensor)
@@ -183,6 +191,7 @@ def evaluate(
         return metrics
 
     return {}  # Other ranks return empty
+
 
 def evaluate_2gpus(
     model: torch.nn.Module,
@@ -269,13 +278,13 @@ def evaluate_test(
                     )
 
                 mask = labels.view(-1) != -100
-                labels = labels.view(-1)[mask].float()
-                outputs = outputs.view(-1)[mask]
+                labels_flat = labels.view(-1)[mask].float()
+                outputs_flat = outputs.view(-1)[mask]
 
-                loss = loss_fn(outputs, labels)
+                loss = loss_fn(outputs_flat, labels_flat)
 
-            mask_outputs = labels != -100
-            outputs = torch.sigmoid(outputs)
+            mask_outputs = (labels != -100).cpu()
+            outputs = torch.sigmoid(outputs.float()).squeeze(-1).cpu()
             masked_outputs = torch.where(mask_outputs, outputs, torch.tensor(0.0))
             row_sums = masked_outputs.sum(dim=1)
             valid_counts = mask_outputs.sum(dim=1)
@@ -284,11 +293,11 @@ def evaluate_test(
             total_loss += loss.item()
             num_batches += 1
 
-            logits = torch.sigmoid(outputs).squeeze().float().cpu().numpy()
-            labels = labels.squeeze().cpu().numpy()
+            logits = torch.sigmoid(outputs_flat).float().cpu().view(-1).numpy()
+            labels_flat = labels_flat.cpu().view(-1).numpy()
 
             preds_local.extend(logits.tolist())
-            targets_local.extend(labels.tolist())
+            targets_local.extend(labels_flat.tolist())
             preds_sample_local.extend(mean_per_row.tolist())
 
     # Gather predictions and labels from all processes
@@ -298,9 +307,34 @@ def evaluate_test(
         preds_sample_local, dtype=torch.float32, device=device
     )
 
-    preds_list = [torch.zeros_like(preds_tensor) for _ in range(2)]
-    targets_list = [torch.zeros_like(targets_tensor) for _ in range(2)]
-    preds_sample_list = [torch.zeros_like(preds_sample_tensor) for _ in range(2)]
+    world_size = dist.get_world_size()
+
+    local_pred_size = torch.tensor([preds_tensor.size(0)], device=device)
+    local_sample_size = torch.tensor([preds_sample_tensor.size(0)], device=device)
+
+    pred_sizes = [
+        torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)
+    ]
+    sample_sizes = [
+        torch.zeros(1, dtype=torch.int64, device=device) for _ in range(world_size)
+    ]
+
+    dist.all_gather(pred_sizes, local_pred_size)
+    dist.all_gather(sample_sizes, local_sample_size)
+
+    # Prepare tensor_list with appropriate sizes
+    preds_list = [
+        torch.zeros(size, dtype=preds_tensor.dtype, device=device)
+        for size in pred_sizes
+    ]
+    targets_list = [
+        torch.zeros(size, dtype=targets_tensor.dtype, device=device)
+        for size in pred_sizes
+    ]
+    preds_sample_list = [
+        torch.zeros(size, dtype=preds_sample_tensor.dtype, device=device)
+        for size in sample_sizes
+    ]
 
     dist.all_gather(preds_list, preds_tensor)
     dist.all_gather(targets_list, targets_tensor)
@@ -310,10 +344,10 @@ def evaluate_test(
 
     if master_process:
         preds_all = torch.cat(preds_list).cpu().numpy()
-        targets_all = torch.cat(targets_list).cpu().numpy()
+        targets_all = torch.cat(targets_list).cpu().numpy().astype(int)
         preds_sample_all = torch.cat(preds_sample_list).cpu().numpy()
 
-        targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
+        # targets_all = np.round(np.clip(targets_all, 0, 1)).astype(int)
         bin_preds = (preds_all >= 0.5).astype(int)
 
         metrics = {
@@ -328,7 +362,7 @@ def evaluate_test(
 
         return metrics, preds_sample_all
 
-    return {}  # Other ranks return empty
+    return None, None
 
 
 def evaluate_2gpus_test(
