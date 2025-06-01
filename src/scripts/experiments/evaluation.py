@@ -18,6 +18,32 @@ from models import (BaselineClassifier, FineTuneClassifier,
                     FineTuneClassifierPhi)
 
 
+from torch.utils.data import Sampler
+
+class CustomSampler(Sampler):
+    def __init__(self, dataset, rank, num_replicas):
+        self.dataset = dataset
+        self.rank = rank
+        self.num_replicas = num_replicas
+        self.total_size = len(self.dataset)
+        self.indices = self._get_indices()
+
+    def _get_indices(self):
+        samples_per_replica = self.total_size // self.num_replicas
+        start_index = self.rank * samples_per_replica
+        if self.rank == self.num_replicas - 1:
+            end_index = self.total_size
+        else:
+            end_index = start_index + samples_per_replica
+        return list(range(start_index, end_index))
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+
+
 def get_paths(checkpoint_path: str) -> List[str]:
     all_files = []
     for root, dirs, files in os.walk(checkpoint_path):
@@ -86,14 +112,11 @@ def path2model(path: str):
 def get_test_loaders(batch_size, collate_func, tokenizer):
     test_loaders = []
     df_test = pd.read_csv(os.path.join(DATASETS_PATH, "master-testset/test.csv"))
-    df_test = df_test.head(100)
     test_dataset = TextDataset(df_test["text"].tolist(), df_test["label"].tolist())
-    test_sampler = DistributedSampler(
-        test_dataset,
-        num_replicas=ddp_world_size,
-        rank=ddp_rank,
-        shuffle=False,
-        seed=SEED,
+    test_sampler = CustomSampler(
+            test_dataset,
+            rank=ddp_rank,
+            num_replicas=ddp_world_size
     )
     test_loader = DataLoader(
         test_dataset,
@@ -105,7 +128,7 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
 
     test_loaders.append((test_loader, df_test, "master-testset"))
 
-    for level in range(1):
+    for level in range(6):
         df_test = pd.read_csv(
             os.path.join(DATASETS_PATH, f"master-testset-hard/test{level}.csv")
         )
@@ -130,7 +153,7 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
 
 
 if __name__ == "__main__":
-    checkpoints = get_paths(CHECKPOINTS_PATH)
+    checkpoints = get_paths(CHECKPOINTS_PATH + "baseline/")
 
     init_process_group(backend="nccl")
 
@@ -153,7 +176,8 @@ if __name__ == "__main__":
                 fieldnames=[
                     "model",
                     "train_dataset",
-                    "test_dataset" "test_loss",
+                    "test_dataset",
+                    "test_loss",
                     "test_accuracy",
                     "test_balanced_accuracy",
                     "test_precision",
@@ -165,16 +189,6 @@ if __name__ == "__main__":
             writer.writeheader()
 
     for checkpoint in checkpoints:
-        if any(
-            sub in checkpoint
-            for sub in [
-                "Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
-                "Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
-                "Qwen2-72B-Instruct-AWQ",
-                "Qwen2.5-72B-Instruct-AWQ",
-            ]
-        ):
-            continue
 
         if master_process:
             print("=" * 50)
@@ -184,7 +198,7 @@ if __name__ == "__main__":
         model, tokenizer = path2model(checkpoint)
         collate_func = collate_fn if model_type == "baseline" else collate_fn_longest
 
-        test_loaders = get_test_loaders(4, collate_func, tokenizer)
+        test_loaders = get_test_loaders(32, collate_func, tokenizer)
         model = model.to(device)
         if model_type == "baseline":
             model = torch.compile(model)
@@ -209,6 +223,9 @@ if __name__ == "__main__":
                 )
 
                 df_preds = pd.DataFrame(preds, columns=["preds"])
+                df_preds["data"] = df_test["data"]
+                df_preds["model"] = df_test["model"]
+                df_preds["label"] = df_test["label"]
 
                 df_preds.to_csv(
                     os.path.join(
@@ -219,7 +236,7 @@ if __name__ == "__main__":
                 )
 
                 model_name = checkpoint.split("/")[-1].split("_")[-2]
-                train_dataset = checkpoint.split("/")[-1].split("_")[-1]
+                train_dataset = checkpoint.split("/")[-1].split("_")[-1].replace(".pt", "")
 
                 record = {
                     "model_name": model_name,
