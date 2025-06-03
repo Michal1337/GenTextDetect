@@ -170,23 +170,24 @@ if __name__ == "__main__":
     if master_process:
         eval_path = TRAINING_HISTORY_PATH + f"test_eval.csv"
 
-        with open(eval_path, mode="w", newline="") as f:
-            writer = csv.DictWriter(
-                f,
-                fieldnames=[
-                    "model",
-                    "train_dataset",
-                    "test_dataset",
-                    "test_loss",
-                    "test_accuracy",
-                    "test_balanced_accuracy",
-                    "test_precision",
-                    "test_recall",
-                    "test_f1",
-                    "test_auc",
-                ],
-            )
-            writer.writeheader()
+        if not os.path.exists(eval_path):
+            with open(eval_path, mode="w", newline="") as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=[
+                        "model",
+                        "train_dataset",
+                        "test_dataset",
+                        "test_loss",
+                        "test_accuracy",
+                        "test_balanced_accuracy",
+                        "test_precision",
+                        "test_recall",
+                        "test_f1",
+                        "test_auc",
+                    ],
+                )
+                writer.writeheader()
 
     for checkpoint in checkpoints:
 
