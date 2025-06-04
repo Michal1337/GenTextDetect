@@ -8,7 +8,7 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer, PreTrainedModel
 
 from ex_params import DATASETS_PATH, PREDICTIONS_PATH
 
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 
 
 class DesklibAIDetectionModel(PreTrainedModel):

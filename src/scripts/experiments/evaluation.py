@@ -191,6 +191,9 @@ if __name__ == "__main__":
 
     for checkpoint in checkpoints:
 
+        if "small_master-small" not in checkpoint and "small_master-mini" not in checkpoint:
+            continue
+
         if master_process:
             print("=" * 50)
             print(f"Checkpoint path: {checkpoint}")
