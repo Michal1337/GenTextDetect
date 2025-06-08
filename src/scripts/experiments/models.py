@@ -106,51 +106,6 @@ class FineTuneClassifierPhi(nn.Module):
         return logits
 
 
-class FineTuneClassifier2GPUs(nn.Module):
-    def __init__(self, base_model_path: str, num_labels: int, load_device_idx: int = 0, infer_device_idx: int = 1) -> None:
-        super(FineTuneClassifier2GPUs, self).__init__()
-        self.load_device = torch.device(f"cuda:{load_device_idx}")
-        self.infer_device = torch.device(f"cuda:{infer_device_idx}")
-
-        self.base_model = AutoModel.from_pretrained(
-            base_model_path,
-            torch_dtype=torch.float16,
-            attn_implementation="flash_attention_2",
-            trust_remote_code=True,
-            device_map="auto"
-        )
-    
-        for p in self.base_model.parameters():
-            p.requires_grad = False
-        
-        self.classifier = nn.Linear(self.base_model.config.hidden_size * 2, num_labels).to(
-            device=self.infer_device,
-        )
-
-        @classmethod
-        def from_classifier_head(
-            cls, base_model_path: str, path: str, num_labels: int
-        ) -> nn.Module:
-            model = cls(base_model_path, num_labels)
-            model.classifier.load_state_dict(torch.load(path))
-            return model
-
-    def forward(self, input_ids: torch.tensor, attention_mask: torch.tensor) -> torch.tensor:
-        outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
-        outputs = outputs.last_hidden_state.to(self.infer_device)
-
-        B, T, C = outputs.shape
-        all_tokens_hidden = outputs
-        last_token_hidden = outputs[:, -1, :]
-        last_token_hidden = last_token_hidden.unsqueeze(1).expand(B, T, C)
-        
-        combined_representation = torch.cat(
-            (all_tokens_hidden, last_token_hidden), dim=-1
-        )
-        combined_representation = combined_representation.float()
-        logits = self.classifier(combined_representation)
-        return logits
-
 class BaselineClassifier(nn.Module):
     def __init__(
         self,

@@ -20,6 +20,11 @@ from models import (BaselineClassifier, FineTuneClassifier,
 
 from torch.utils.data import Sampler
 
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(SEED)
+torch.set_float32_matmul_precision("high")
+
 class CustomSampler(Sampler):
     def __init__(self, dataset, rank, num_replicas):
         self.dataset = dataset
@@ -53,6 +58,18 @@ def get_paths(checkpoint_path: str) -> List[str]:
 
     return all_files
 
+def base_model2folder(name):
+    if "Falcon" in name:
+        return "tiiuae"
+    if "Llama" in name:
+        return "meta-llama"
+    if "phi" in name.lower():
+        return "microsoft"
+    if "Qwen" in name:
+        return "Qwen"
+    if "Ministral" in name or "Mistral" in name:
+        return "mistralai"
+
 
 def path2model(path: str):
     if "baseline" in path:
@@ -82,7 +99,8 @@ def path2model(path: str):
 
     elif "finetune" in path:
         base_model = path.split("_")[2]
-        base_model_path = os.path.join(MODEL_PATH, base_model)
+        folder = base_model2folder(base_model)
+        base_model_path = os.path.join(MODEL_PATH, folder, base_model)
 
         tokenizer = AutoTokenizer.from_pretrained(
             base_model_path, trust_remote_code=True
@@ -153,7 +171,24 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
 
 
 if __name__ == "__main__":
-    checkpoints = get_paths(CHECKPOINTS_PATH + "baseline/")
+    checkpoints = [
+        # ("../../../checkpoints/finetune/finetuned_model_Llama-3.1-8B-Instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Llama-3.2-3B-Instruct_master-large.pt", 8),
+        # ("../../../checkpoints/finetune/finetuned_model_Phi-3-mini-128k-instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Phi-3-small-128k-instruct_master-large.pt", 1),
+        # ("../../../checkpoints/finetune/finetuned_model_Phi-3-medium-128k-instruct_master-large.pt", 1),
+        # ("../../../checkpoints/finetune/finetuned_model_Phi-3.5-mini-instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Phi-4-mini-instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_phi-4_master-large.pt", 1),
+        ("../../../checkpoints/finetune/finetuned_model_Mistral-Nemo-Instruct-2407_master-large.pt", 2),
+        ("../../../checkpoints/finetune/finetuned_model_Ministral-8B-Instruct-2410_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Qwen2-7B-Instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Qwen2.5-14B-Instruct_master-large.pt", 2),
+        # ("../../../checkpoints/finetune/finetuned_model_Qwen2.5-7B-Instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Qwen2.5-3B-Instruct_master-large.pt", 8),
+        # ("../../../checkpoints/finetune/finetuned_model_Falcon3-7B-Instruct_master-large.pt", 4),
+        # ("../../../checkpoints/finetune/finetuned_model_Falcon3-3B-Instruct_master-large.pt", 8),
+    ]
 
     init_process_group(backend="nccl")
 
@@ -168,7 +203,7 @@ if __name__ == "__main__":
     print(f"World Size: {ddp_world_size}, Local Rank: {ddp_local_rank}")
 
     if master_process:
-        eval_path = TRAINING_HISTORY_PATH + f"test_eval.csv"
+        eval_path = TRAINING_HISTORY_PATH + f"finetune_eval.csv"
 
         if not os.path.exists(eval_path):
             with open(eval_path, mode="w", newline="") as f:
@@ -189,10 +224,8 @@ if __name__ == "__main__":
                 )
                 writer.writeheader()
 
-    for checkpoint in checkpoints:
-
-        if "small_master-small" not in checkpoint and "small_master-mini" not in checkpoint:
-            continue
+    for checkpoint_config in checkpoints:
+        checkpoint, batch_size = checkpoint_config
 
         if master_process:
             print("=" * 50)
@@ -202,7 +235,7 @@ if __name__ == "__main__":
         model, tokenizer = path2model(checkpoint)
         collate_func = collate_fn if model_type == "baseline" else collate_fn_longest
 
-        test_loaders = get_test_loaders(32, collate_func, tokenizer)
+        test_loaders = get_test_loaders(batch_size, collate_func, tokenizer)
         model = model.to(device)
         if model_type == "baseline":
             model = torch.compile(model)
