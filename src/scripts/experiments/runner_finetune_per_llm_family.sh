@@ -1,12 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=per_llmfam      # Job name
-#SBATCH --output=per_llmf1.log           # Standard output log
-#SBATCH --error=per_llmf1.log             # Standard error log
+#SBATCH --output=per_llmf4.log           # Standard output log
+#SBATCH --error=per_llmf4.log             # Standard error log
 #SBATCH --time=120:00:00               # Time limit
 #SBATCH --gres=gpu:2                  # Request 2 GPUs
 #SBATCH --mem=96G                     # Memory request
 #SBATCH --cpus-per-task=8             # Allocate CPU cores
 #SBATCH --partition=long              # Specify the long queue
+#SBATCH --nodelist=dgx-4
 
 # Ensure pyenv is initialized
 export HOME=/mnt/evafs/faculty/home/mgromadzki
@@ -27,7 +28,7 @@ eval "$(pyenv virtualenv-init -)"
 # torchrun --nproc_per_node=2 --master_port=29554 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3-medium-128k-instruct detect-phi-family 5 1
 # torchrun --nproc_per_node=2 --master_port=29514 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-3.5-mini-instruct detect-phi-family 5 4
 # torchrun --nproc_per_node=2 --master_port=29515 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/Phi-4-mini-instruct detect-phi-family 5 4
-torchrun --nproc_per_node=2 --master_port=29555 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/phi-4 detect-phi-family 5 1
+# torchrun --nproc_per_node=2 --master_port=29555 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/microsoft/phi-4 detect-phi-family 5 1
 
 # Mistral
 # torchrun --nproc_per_node=2 --master_port=29512 training_finetune.py /mnt/evafs/groups/re-com/mgromadzki/llms/mistralai/Mistral-Nemo-Instruct-2407 detect-mistral-family 5 2

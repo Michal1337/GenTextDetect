@@ -59,6 +59,8 @@ def get_paths(checkpoint_path: str) -> List[str]:
     return all_files
 
 def base_model2folder(name):
+    if "Meta-Llama-3.1-70B-Instruct-AWQ-INT4" in name:
+        return "hugging-quants"
     if "Falcon" in name:
         return "tiiuae"
     if "Llama" in name:
@@ -172,22 +174,7 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
 
 if __name__ == "__main__":
     checkpoints = [
-        # ("../../../checkpoints/finetune/finetuned_model_Llama-3.1-8B-Instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Llama-3.2-3B-Instruct_master-large.pt", 8),
-        # ("../../../checkpoints/finetune/finetuned_model_Phi-3-mini-128k-instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Phi-3-small-128k-instruct_master-large.pt", 1),
-        # ("../../../checkpoints/finetune/finetuned_model_Phi-3-medium-128k-instruct_master-large.pt", 1),
-        # ("../../../checkpoints/finetune/finetuned_model_Phi-3.5-mini-instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Phi-4-mini-instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_phi-4_master-large.pt", 1),
-        ("../../../checkpoints/finetune/finetuned_model_Mistral-Nemo-Instruct-2407_master-large.pt", 2),
-        ("../../../checkpoints/finetune/finetuned_model_Ministral-8B-Instruct-2410_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Qwen2-7B-Instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Qwen2.5-14B-Instruct_master-large.pt", 2),
-        # ("../../../checkpoints/finetune/finetuned_model_Qwen2.5-7B-Instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Qwen2.5-3B-Instruct_master-large.pt", 8),
-        # ("../../../checkpoints/finetune/finetuned_model_Falcon3-7B-Instruct_master-large.pt", 4),
-        # ("../../../checkpoints/finetune/finetuned_model_Falcon3-3B-Instruct_master-large.pt", 8),
+        ("../../../checkpoints/finetune/finetuned_model_Meta-Llama-3.1-70B-Instruct-AWQ-INT4_detect-Meta-Llama-3.1-70B-Instruct-AWQ-INT4.pt", 2)
     ]
 
     init_process_group(backend="nccl")
@@ -203,7 +190,7 @@ if __name__ == "__main__":
     print(f"World Size: {ddp_world_size}, Local Rank: {ddp_local_rank}")
 
     if master_process:
-        eval_path = TRAINING_HISTORY_PATH + f"finetune_eval.csv"
+        eval_path = TRAINING_HISTORY_PATH + f"per_llm_eval.csv"
 
         if not os.path.exists(eval_path):
             with open(eval_path, mode="w", newline="") as f:
