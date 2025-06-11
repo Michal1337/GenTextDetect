@@ -15,8 +15,14 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
-from ex_params import (BASELINE_MODELS, CHECKPOINTS_PATH, DATASETS_PATH,
-                       MAX_TEXT_LENGTH, SEED, TRAINING_HISTORY_PATH)
+from ex_params import (
+    BASELINE_MODELS,
+    CHECKPOINTS_PATH,
+    DATASETS_PATH,
+    MAX_TEXT_LENGTH,
+    SEED,
+    TRAINING_HISTORY_PATH,
+)
 from ex_utils import TextDataset, collate_fn, evaluate
 from models import BaselineClassifier
 
@@ -154,8 +160,11 @@ if __name__ == "__main__":
     best_val_acc = -1
     step = 0
 
-    history_path = TRAINING_HISTORY_PATH + f"baseline/training_history_baseline_{args.model_size}_{args.dataset_name}.csv"
-        
+    history_path = (
+        TRAINING_HISTORY_PATH
+        + f"baseline/training_history_baseline_{args.model_size}_{args.dataset_name}.csv"
+    )
+
     if master_process:
         with open(history_path, mode="w", newline="") as f:
             writer = csv.DictWriter(
