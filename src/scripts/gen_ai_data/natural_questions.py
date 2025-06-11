@@ -8,9 +8,14 @@ import pandas as pd
 from datasets import load_dataset
 from tqdm import tqdm
 
-from gen_params import (AI_DATA_BASE_PATH, HUMAN_DATA_BASE_PATH,
-                        MAX_TOKENS_PROMPT, RAW_DATA_BASE_PATH, SAMPLING_PARAMS,
-                        SEED)
+from gen_params import (
+    AI_DATA_BASE_PATH,
+    HUMAN_DATA_BASE_PATH,
+    MAX_TOKENS_PROMPT,
+    RAW_DATA_BASE_PATH,
+    SAMPLING_PARAMS,
+    SEED,
+)
 from gen_utils import check_for_too_long_prompts, generate_texts
 
 np.random.seed(SEED)

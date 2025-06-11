@@ -14,9 +14,15 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
-from ex_params import (CHECKPOINTS_PATH, DATASETS_PATH, MAX_TEXT_LENGTH,
-                       PAD_TOKENS, SEED, TRAINING_CONFIG,
-                       TRAINING_HISTORY_PATH)
+from ex_params import (
+    CHECKPOINTS_PATH,
+    DATASETS_PATH,
+    MAX_TEXT_LENGTH,
+    PAD_TOKENS,
+    SEED,
+    TRAINING_CONFIG,
+    TRAINING_HISTORY_PATH,
+)
 from ex_utils import TextDataset, collate_fn_longest, evaluate
 from models import FineTuneClassifier, FineTuneClassifierPhi
 
@@ -154,8 +160,11 @@ if __name__ == "__main__":
     step = 0
     tokens_per_sec_list = []
 
-    history_path = TRAINING_HISTORY_PATH + f"finetune/training_history_finetune_{model_name}_{args.dataset_name}.csv"
-    
+    history_path = (
+        TRAINING_HISTORY_PATH
+        + f"finetune/training_history_finetune_{model_name}_{args.dataset_name}.csv"
+    )
+
     if master_process:
         with open(history_path, mode="w", newline="") as f:
             writer = csv.DictWriter(

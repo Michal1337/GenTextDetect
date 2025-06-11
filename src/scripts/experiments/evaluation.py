@@ -10,12 +10,18 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
-from ex_params import (BASELINE_MODELS, CHECKPOINTS_PATH, DATASETS_PATH,
-                       MODEL_PATH, PAD_TOKENS, PREDICTIONS_PATH, SEED,
-                       TRAINING_HISTORY_PATH)
+from ex_params import (
+    BASELINE_MODELS,
+    CHECKPOINTS_PATH,
+    DATASETS_PATH,
+    MODEL_PATH,
+    PAD_TOKENS,
+    PREDICTIONS_PATH,
+    SEED,
+    TRAINING_HISTORY_PATH,
+)
 from ex_utils import TextDataset, collate_fn, collate_fn_longest, evaluate_test
-from models import (BaselineClassifier, FineTuneClassifier,
-                    FineTuneClassifierPhi)
+from models import BaselineClassifier, FineTuneClassifier, FineTuneClassifierPhi
 
 
 from torch.utils.data import Sampler
@@ -24,6 +30,7 @@ torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
 torch.set_float32_matmul_precision("high")
+
 
 class CustomSampler(Sampler):
     def __init__(self, dataset, rank, num_replicas):
@@ -57,6 +64,7 @@ def get_paths(checkpoint_path: str) -> List[str]:
                 all_files.append(os.path.join(root, file))
 
     return all_files
+
 
 def base_model2folder(name):
     if "Meta-Llama-3.1-70B-Instruct-AWQ-INT4" in name:
@@ -134,9 +142,7 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
     df_test = pd.read_csv(os.path.join(DATASETS_PATH, "master-testset/test.csv"))
     test_dataset = TextDataset(df_test["text"].tolist(), df_test["label"].tolist())
     test_sampler = CustomSampler(
-            test_dataset,
-            rank=ddp_rank,
-            num_replicas=ddp_world_size
+        test_dataset, rank=ddp_rank, num_replicas=ddp_world_size
     )
     test_loader = DataLoader(
         test_dataset,
@@ -174,7 +180,10 @@ def get_test_loaders(batch_size, collate_func, tokenizer):
 
 if __name__ == "__main__":
     checkpoints = [
-        ("../../../checkpoints/finetune/finetuned_model_Meta-Llama-3.1-70B-Instruct-AWQ-INT4_detect-Meta-Llama-3.1-70B-Instruct-AWQ-INT4.pt", 2)
+        (
+            "../../../checkpoints/finetune/finetuned_model_Meta-Llama-3.1-70B-Instruct-AWQ-INT4_detect-Meta-Llama-3.1-70B-Instruct-AWQ-INT4.pt",
+            2,
+        )
     ]
 
     init_process_group(backend="nccl")
@@ -260,7 +269,9 @@ if __name__ == "__main__":
                 )
 
                 model_name = checkpoint.split("/")[-1].split("_")[-2]
-                train_dataset = checkpoint.split("/")[-1].split("_")[-1].replace(".pt", "")
+                train_dataset = (
+                    checkpoint.split("/")[-1].split("_")[-1].replace(".pt", "")
+                )
 
                 record = {
                     "model_name": model_name,

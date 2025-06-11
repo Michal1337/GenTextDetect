@@ -86,8 +86,8 @@ def batchify(data_list, batch_size):
 
 
 if __name__ == "__main__":
-    tokenizer = AutoTokenizer.from_pretrained("desklib/ai-text-detector-v1.01")
-    model = AutoModel.from_pretrained("desklib/ai-text-detector-v1.01")
+    # tokenizer = AutoTokenizer.from_pretrained("desklib/ai-text-detector-v1.01")
+    # model = AutoModel.from_pretrained("desklib/ai-text-detector-v1.01")
 
     model_directory = "desklib/ai-text-detector-v1.01"
 

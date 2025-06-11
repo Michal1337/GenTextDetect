@@ -11,12 +11,13 @@ import pandas as pd
 import spacy
 import textstat
 from nltk.corpus import stopwords
-from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.sentiment import SentimentIntensityAnalyzer
+from nltk.tokenize import sent_tokenize, word_tokenize
 from scipy.stats import entropy
 from tqdm import tqdm
 
-from params import DATA_AI_PATH, DATA_HUMAN_PATH, FEATURES_PATH, FEATURES_STATS_PATH
+from params import (DATA_AI_PATH, DATA_HUMAN_PATH, FEATURES_PATH,
+                    FEATURES_STATS_PATH)
 from utils import get_csv_paths
 
 # Download necessary NLTK data
@@ -30,6 +31,7 @@ nlp = spacy.load("en_core_web_sm")
 
 vader_analyzer = SentimentIntensityAnalyzer()
 
+
 def d_metric(string: str) -> float:
     string_list = string.split()
     counts = np.unique(string_list, return_counts=True)[1]
@@ -37,8 +39,9 @@ def d_metric(string: str) -> float:
     n = len(string_list)
     if n < 2:
         return 0.0
-    denominator = n*(n-1)
-    return numerator/denominator
+    denominator = n * (n - 1)
+    return numerator / denominator
+
 
 def lexical_features(text: str) -> Dict[str, Union[int, float]]:
     words = word_tokenize(text)
@@ -54,8 +57,17 @@ def lexical_features(text: str) -> Dict[str, Union[int, float]]:
         "RTTR": np.sqrt(len(unique_words)) / len(words) if words else 0,
         "CTTR": len(unique_words) / ((len(words) * 2) ** 0.5) if words else 0,
         "DMetric": d_metric(text),
-        "Mass": (np.log10(len(words)) - np.log10(len(unique_words))) / (np.log10(len(words))**2) if len(words) > 1 else 0,
-        "stopword_ratio": len([w for w in words if w.lower() in stop_words]) / len(words) if words else 0,
+        "Mass": (
+            (np.log10(len(words)) - np.log10(len(unique_words)))
+            / (np.log10(len(words)) ** 2)
+            if len(words) > 1
+            else 0
+        ),
+        "stopword_ratio": (
+            len([w for w in words if w.lower() in stop_words]) / len(words)
+            if words
+            else 0
+        ),
     }
 
 

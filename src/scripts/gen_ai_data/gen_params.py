@@ -13,7 +13,8 @@ MAX_MODEL_LEN: int = MAX_TOKENS_PROMPT + MAX_TOKENS_GENERATE
 
 MAX_WORKERS: int = 256
 MAX_RETRIES: int = 5
-API_KEY: str = "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" # "your api key here"
+API_KEY: str = "your api key here"
+
 
 SAMPLING_PARAMS: List[SamplingParams] = [
     SamplingParams(
@@ -111,7 +112,6 @@ LLMS: List[Tuple[str, str, Optional[str]]] = [
     # Falcon
     ("tiiuae/Falcon3-7B-Instruct", MODEL_PATH + "tiiuae/Falcon3-7B-Instruct", None),
     ("tiiuae/Falcon3-3B-Instruct", MODEL_PATH + "tiiuae/Falcon3-3B-Instruct", None),
-
     # OpenAI
     ("gpt-4.1-nano-2025-04-14", "proprietary", None),
 ]

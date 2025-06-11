@@ -31,7 +31,9 @@ class FineTuneClassifier(nn.Module):
     ) -> torch.tensor:
         self.base_model.eval()
         with torch.no_grad():
-            outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+            outputs = self.base_model(
+                input_ids=input_ids, attention_mask=attention_mask
+            )
 
         B, T, C = outputs.last_hidden_state.shape
         all_tokens_hidden = outputs.last_hidden_state  # (B, T, C)
@@ -143,7 +145,7 @@ class BaselineClassifier(nn.Module):
             diagonal=1,
         )
 
-        output = self.transformer(embeddings, mask=causal_mask) 
+        output = self.transformer(embeddings, mask=causal_mask)
 
         B, T, C = output.shape
         all_tokens_hidden = output  # (B, T, C)

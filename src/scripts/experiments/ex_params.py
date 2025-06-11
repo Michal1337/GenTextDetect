@@ -159,7 +159,11 @@ DATASETS: Dict[str, Dict[str, Union[int, bool, List[str]]]] = {
         "cols_c0": ["Phi-4-mini-instruct"],
         "reverse_labels": True,
     },
-    "detect-phi-4": {"num_tokens": NUM_TOKENS_DETECT_LLM, "cols_c0": ["phi-4"], "reverse_labels": True,},
+    "detect-phi-4": {
+        "num_tokens": NUM_TOKENS_DETECT_LLM,
+        "cols_c0": ["phi-4"],
+        "reverse_labels": True,
+    },
     # Mistral
     "detect-Mistral-Nemo-Instruct-2407": {
         "num_tokens": NUM_TOKENS_DETECT_LLM,

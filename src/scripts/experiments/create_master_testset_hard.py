@@ -9,8 +9,13 @@ import pandas as pd
 from tqdm import tqdm
 from vllm import LLM, SamplingParams
 
-from ex_params import (DATASETS_PATH, MAX_MODEL_LEN, MAX_TOKENS_GENERATE,
-                       NUM_SAMPLES, SEED)
+from ex_params import (
+    DATASETS_PATH,
+    MAX_MODEL_LEN,
+    MAX_TOKENS_GENERATE,
+    NUM_SAMPLES,
+    SEED,
+)
 
 random.seed(SEED)
 

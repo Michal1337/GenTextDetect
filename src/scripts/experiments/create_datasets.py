@@ -6,8 +6,15 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ex_params import (DATA_AI_PATH, DATA_HUMAN_PATH, DATASETS, DATASETS_PATH,
-                       MAX_TEXT_LENGTH, SEED, STATS_PATH)
+from ex_params import (
+    DATA_AI_PATH,
+    DATA_HUMAN_PATH,
+    DATASETS,
+    DATASETS_PATH,
+    MAX_TEXT_LENGTH,
+    SEED,
+    STATS_PATH,
+)
 from ex_utils import get_csv_paths
 
 np.random.seed(SEED)
@@ -143,7 +150,9 @@ def create_dataset_idx(
                     ).sum()
                     for ds in non_empty_datas
                 ]
-                probs_non_empty = np.array(weights_non_empty) / np.sum(weights_non_empty)
+                probs_non_empty = np.array(weights_non_empty) / np.sum(
+                    weights_non_empty
+                )
                 data_new = np.random.choice(non_empty_datas, p=probs_non_empty)
                 mult = (
                     df_main[(df_main["data"] == data) & (df_main["model"] == model)][
