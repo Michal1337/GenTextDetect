@@ -1,9 +1,9 @@
 # GenTextDetect
-Repository for my MSC thesis titled: `AI-generated vs human-authored texts: comparative analysis of datasets and NLP methods`.
-Author: `Michał Gromadzki`
-Supervisors: `PhD in Computer Science, Anna Wróblewska` and `PhD in Linguistics, Agnieszka Kaliska`
-University: `Warsaw University of Technology, Faculty of Mathematics and Information Science`
-Year: `2024/2025`
+Repository for my MSC thesis titled: `AI-generated vs human-authored texts: comparative analysis of datasets and NLP methods`. \
+Author: `Michał Gromadzki` \
+Supervisors: `PhD in Computer Science, Anna Wróblewska` and `PhD in Linguistics, Agnieszka Kaliska` \
+University: `Warsaw University of Technology, Faculty of Mathematics and Information Science` \
+Year: `2024/2025` \
 
 ## Repository Structure
 
