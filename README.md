@@ -19,7 +19,7 @@ The following plot summarizes the performance of the developed models in disting
 ## Repository Structure
 
 1. `./logs/` - Training history for all experiments
-2. `./notebooks` - Jupyter Notebooks used for development
+2. `./notebooks/` - Jupyter Notebooks used for development
 3. `./plots/` - Plots used in the thesis
 4. `./predictions/` - Prediction of all evaluated models on the test datasets
 5. `./src/` - Source code
