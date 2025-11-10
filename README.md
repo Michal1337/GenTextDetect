@@ -1,9 +1,20 @@
 # GenTextDetect
+
 Repository for my MSC thesis titled: `AI-generated vs human-authored texts: comparative analysis of datasets and NLP methods`. \
 Author: `Michał Gromadzki` \
 Supervisors: `PhD in Computer Science, Anna Wróblewska` and `PhD in Linguistics, Agnieszka Kaliska` \
 University: `Warsaw University of Technology, Faculty of Mathematics and Information Science` \
 Year: `2024/2025`
+
+## Project Overview
+
+This thesis highlights the inconsistencies in data quality and methodological approaches in the current systems. It addresses these shortcomings by conducting a comparative analysis on a thoroughly collected textual corpus. It further presents a series of experiments designed to enhance the efficiency of AI-generated text detection systems. These experiments introduce two novel training paradigms aimed at improving detection accuracy and scalability across diverse textual domains. Finally, it introduces a robust and universally applicable evaluation pipeline.
+
+## Results
+
+The following plot summarizes the performance of the developed models in distinguishing AI-generated from human-authored texts.
+
+![Results](./plots/last.png)
 
 ## Repository Structure
 
