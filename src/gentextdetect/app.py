@@ -119,19 +119,24 @@ def _resolve_finetune_paths():
     return base_path, base_name, is_phi
 
 
-def prob_to_color(prob: float) -> str:
-    """Green (low prob = human) → yellow → red (high prob = AI)."""
+def prob_to_rgb(prob: float) -> tuple[float, float, float]:
+    """Green (low prob = human) → yellow → red (high prob = AI), in [0, 1]."""
     prob = max(0.0, min(1.0, prob))
     if prob < 0.5:
         t = prob / 0.5
-        r = int(80 + (255 - 80) * t)
-        g = 200
+        r = (80 + (255 - 80) * t) / 255.0
+        g = 200 / 255.0
     else:
         t = (prob - 0.5) / 0.5
-        r = 255
-        g = int(200 - (200 - 60) * t)
-    b = 60
-    return f"rgba({r}, {g}, {b}, 0.55)"
+        r = 1.0
+        g = (200 - (200 - 60) * t) / 255.0
+    b = 60 / 255.0
+    return (r, g, b)
+
+
+def prob_to_color(prob: float) -> str:
+    r, g, b = prob_to_rgb(prob)
+    return f"rgba({int(r*255)}, {int(g*255)}, {int(b*255)}, 0.55)"
 
 
 def render_tokens_html(predictions) -> str:
@@ -286,30 +291,34 @@ def main() -> None:
     with st.expander("Model details"):
         st.json(meta)
 
+    st.markdown(color_legend_html(), unsafe_allow_html=True)
+
+    tab_text, tab_pdf = st.tabs(["Text", "PDF"])
+
+    with tab_text:
+        _text_tab(model, tokenizer)
+    with tab_pdf:
+        _pdf_tab(model, tokenizer)
+
+
+def _text_tab(model, tokenizer) -> None:
     text = st.text_area(
         "Text to analyze",
         height=260,
         placeholder="Paste any passage here…",
+        key="text_input",
     )
-
-    col_run, col_info = st.columns([1, 3])
-    with col_run:
-        run = st.button("Analyze", type="primary", use_container_width=True)
-    with col_info:
-        st.markdown(color_legend_html(), unsafe_allow_html=True)
-
+    run = st.button(
+        "Analyze", type="primary", use_container_width=False, key="text_run"
+    )
     if not run:
         return
-
     if not text.strip():
         st.warning("Please enter some text to analyze.")
         return
 
     with st.spinner("Scoring tokens…"):
-        from inference import (
-            aggregate_probability,
-            predict_token_probs,
-        )
+        from inference import aggregate_probability, predict_token_probs
         predictions = predict_token_probs(
             text=text,
             model=model,
@@ -348,6 +357,126 @@ def main() -> None:
             for p in predictions
         ]
         st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+def _pdf_tab(model, tokenizer) -> None:
+    uploaded = st.file_uploader(
+        "Upload a PDF",
+        type=["pdf"],
+        key="pdf_upload",
+        help=(
+            "The PDF text is extracted with per-character bounding boxes, "
+            "scored token-by-token, and overlaid with translucent colored "
+            "rectangles. Long PDFs are chunked at the model's max length."
+        ),
+    )
+    if uploaded is None:
+        return
+
+    if not getattr(tokenizer, "is_fast", False):
+        st.error(
+            "PDF mode requires a fast tokenizer (one that returns "
+            "offset_mapping). The current tokenizer does not."
+        )
+        return
+
+    run = st.button(
+        "Analyze PDF", type="primary", key="pdf_run"
+    )
+    if not run:
+        return
+
+    pdf_bytes = uploaded.getvalue()
+
+    with st.spinner("Extracting text + char bboxes from PDF…"):
+        try:
+            from pdf_utils import extract_chars
+        except ImportError as exc:
+            st.error(
+                f"PyMuPDF is not installed: {exc}. Run "
+                "`pip install pymupdf`."
+            )
+            return
+        text, char_spans = extract_chars(pdf_bytes)
+
+    if not text.strip():
+        st.warning(
+            "No extractable text found in this PDF (image-only scan?)."
+        )
+        return
+
+    n_chars = sum(1 for c in char_spans if c is not None)
+    st.caption(
+        f"Extracted {n_chars:,} characters from {uploaded.name} — "
+        "scoring now."
+    )
+
+    progress = st.progress(0.0, text="Scoring tokens…")
+
+    def _cb(done: int, total: int) -> None:
+        progress.progress(min(done / max(total, 1), 1.0))
+
+    with st.spinner("Running model on extracted text…"):
+        from inference import predict_long_text
+        token_probs = predict_long_text(
+            text=text,
+            model=model,
+            tokenizer=tokenizer,
+            model_type=MODEL_TYPE,
+            device=DEVICE,
+            progress_cb=_cb,
+        )
+    progress.empty()
+
+    if not token_probs:
+        st.warning("Tokenizer produced no tokens.")
+        return
+
+    valid = [t.prob for t in token_probs if t.char_end > t.char_start]
+    overall = sum(valid) / max(len(valid), 1)
+    verdict = (
+        "Likely AI-generated" if overall >= 0.5 else "Likely human-authored"
+    )
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Mean P(AI)", f"{overall:.3f}")
+    m2.metric("Tokens scored", f"{len(valid):,}")
+    m3.metric("Verdict", verdict)
+
+    with st.spinner("Annotating PDF…"):
+        from pdf_utils import annotate_pdf
+        annotated = annotate_pdf(
+            pdf_bytes=pdf_bytes,
+            char_spans=char_spans,
+            token_spans=[
+                (t.char_start, t.char_end, t.prob) for t in token_probs
+            ],
+            color_fn=prob_to_rgb,
+        )
+
+    out_name = uploaded.name.rsplit(".", 1)[0] + "_annotated.pdf"
+    st.download_button(
+        "Download annotated PDF",
+        data=annotated,
+        file_name=out_name,
+        mime="application/pdf",
+        type="primary",
+    )
+
+    if len(annotated) <= 25 * 1024 * 1024:
+        with st.expander("Inline preview", expanded=True):
+            import base64
+            b64 = base64.b64encode(annotated).decode("ascii")
+            st.markdown(
+                f'<iframe src="data:application/pdf;base64,{b64}" '
+                'width="100%" height="800" '
+                'style="border:1px solid #ccc; border-radius:4px;"></iframe>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info(
+            "Annotated PDF exceeds 25 MB — skipping inline preview, "
+            "use the download button instead."
+        )
 
 
 if __name__ == "__main__":

@@ -214,3 +214,83 @@ def aggregate_probability(predictions: List[TokenPrediction]) -> float:
     if not valid:
         return 0.0
     return float(np.mean(valid))
+
+
+@dataclass
+class TokenSpanProb:
+    """Per-token result for long-text inference: keeps raw character offsets."""
+    char_start: int
+    char_end: int
+    prob: float
+
+
+def predict_long_text(
+    text: str,
+    model: torch.nn.Module,
+    tokenizer: AutoTokenizer,
+    model_type: str,
+    device: str = "cpu",
+    chunk_tokens: int = MAX_TEXT_LENGTH,
+    progress_cb=None,
+) -> List[TokenSpanProb]:
+    """Tokenize the full text and run inference over consecutive
+    ``chunk_tokens``-sized windows. Returns per-token (char_start, char_end,
+    p_ai) for the entire input — long PDFs included.
+
+    BOS is added per chunk so each window matches the model's training
+    distribution; chunks past the first will not see preceding context, which
+    is an accepted trade-off for inputs longer than the model's max length.
+    """
+    if not text:
+        return []
+    if not getattr(tokenizer, "is_fast", False):
+        raise RuntimeError(
+            "predict_long_text requires a fast tokenizer (offset_mapping)."
+        )
+
+    enc = tokenizer(
+        text,
+        add_special_tokens=False,
+        return_offsets_mapping=True,
+        truncation=False,
+    )
+    all_ids: List[int] = enc["input_ids"]
+    all_offsets: List[Tuple[int, int]] = enc["offset_mapping"]
+
+    if not all_ids:
+        return []
+
+    out: List[TokenSpanProb] = []
+    n = len(all_ids)
+    for start in range(0, n, chunk_tokens):
+        chunk_ids = all_ids[start : start + chunk_tokens]
+        chunk_offsets = all_offsets[start : start + chunk_tokens]
+
+        input_ids = torch.tensor(
+            [chunk_ids], dtype=torch.long, device=device
+        )
+        attention_mask = torch.ones_like(input_ids)
+
+        autocast_ctx = (
+            torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+            if device.startswith("cuda")
+            else torch.autocast(device_type="cpu", enabled=False)
+        )
+
+        with torch.no_grad(), autocast_ctx:
+            if model_type == "baseline":
+                logits = model(input_ids)
+            else:
+                logits = model(input_ids, attention_mask)
+
+        probs = torch.sigmoid(logits.float()).squeeze(-1).squeeze(0).cpu().numpy()
+        if probs.ndim == 0:
+            probs = np.array([float(probs)])
+
+        for (s, e), p in zip(chunk_offsets, probs):
+            out.append(TokenSpanProb(int(s), int(e), float(p)))
+
+        if progress_cb is not None:
+            progress_cb(min(start + chunk_tokens, n), n)
+
+    return out
