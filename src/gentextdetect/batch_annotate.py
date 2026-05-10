@@ -56,15 +56,15 @@ ANNOTATED_SUFFIX: str = "_annotated"
 # Drop math-font spans and lines that look like math fragments / plot labels
 # before scoring. Reduces equation/figure noise at the cost of occasionally
 # dropping legitimate short lines.
-CLEAN_TEXT: bool = True
+CLEAN_TEXT: bool = False
 
 # Inference batch size for stage 2 (number of chunks fed to the model
 # together). Each chunk is up to MAX_TEXT_LENGTH tokens.
-BATCH_SIZE: int = 4
+BATCH_SIZE: int = 2
 
 # Number of threads used in stage 3 (annotate + save). PyMuPDF releases the
 # GIL so this scales well with cores.
-NUM_WORKERS: int = 4
+NUM_WORKERS: int = 16
 
 # CSV with one summary row per PDF (path is relative to OUTPUT_DIR if not
 # absolute). Set to "" to disable.
