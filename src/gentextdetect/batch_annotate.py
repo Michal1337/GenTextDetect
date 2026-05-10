@@ -14,10 +14,9 @@ from __future__ import annotations
 import csv
 import os
 import sys
-import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -186,6 +185,37 @@ def load_model_and_tokenizer():
     return model, tokenizer, meta
 
 
+def _annotate_pdf_worker(args: Tuple[Path, bytes, Any, Any]) -> Dict[str, Any]:
+    """Top-level worker for ProcessPoolExecutor — must be importable so
+    spawned processes can pickle and execute it. Does annotation + save
+    for one PDF; returns a result dict that the main process consumes.
+    """
+    out_path, pdf_bytes, char_spans, token_probs = args
+    try:
+        from pdf_utils import annotate_pdf  # heavy-ish; per-process import
+
+        valid = [t.prob for t in token_probs if t.char_end > t.char_start]
+        stats = _stats(valid)
+        stats["total_tokens"] = len(token_probs)
+
+        annotated = annotate_pdf(
+            pdf_bytes=pdf_bytes,
+            char_spans=char_spans,
+            token_spans=[
+                (t.char_start, t.char_end, t.prob) for t in token_probs
+            ],
+            color_fn=prob_to_rgb,
+        )
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(annotated)
+        return {"status": "ok", "stats": stats}
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "status": "error",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 def _stats(probs: List[float]) -> Dict[str, Any]:
     if not probs:
         return {
@@ -290,7 +320,6 @@ def main() -> None:
     if csv_fh is not None:
         print(f"Summary CSV: {csv_fh.name}")
 
-    csv_lock = threading.Lock()
     counts: Dict[str, int] = {
         "ok": 0,
         "skipped_existing": 0,
@@ -298,7 +327,6 @@ def main() -> None:
         "extract_error": 0,
         "annotate_error": 0,
     }
-    counts_lock = threading.Lock()
 
     def _write_row(rel_path: Path, status: str,
                    payload: Optional[Dict[str, Any]] = None,
@@ -316,20 +344,20 @@ def main() -> None:
                         row[k] = round(v, 6)
                     else:
                         row[k] = v
-        with csv_lock:
-            csv_writer.writerow(row)
-            csv_fh.flush()
+        csv_writer.writerow(row)
+        csv_fh.flush()
 
     def _bump(key: str) -> None:
-        with counts_lock:
-            counts[key] = counts.get(key, 0) + 1
+        counts[key] = counts.get(key, 0) + 1
 
     t_start = time.time()
+    stage_times: Dict[str, float] = {}
 
     # ── Stage 1 — extract text + bboxes from every PDF (sequential) ──
     print(f"\n[1/3] Extracting text from {len(pdfs)} PDFs (sequential)")
     from pdf_utils import extract_chars
 
+    t_stage = time.time()
     extracted: List[Dict[str, Any]] = []
     for pdf_path in tqdm(pdfs, desc="extract", unit="pdf"):
         rel = pdf_path.relative_to(in_dir)
@@ -364,6 +392,7 @@ def main() -> None:
             "text": text,
             "char_spans": char_spans,
         })
+    stage_times["extract"] = time.time() - t_stage
 
     # ── Stage 2 — batched LLM inference across all extracted PDFs ──
     if extracted:
@@ -373,6 +402,7 @@ def main() -> None:
             f"\n[2/3] Running model on {len(extracted)} PDFs "
             f"(batch={BATCH_SIZE})"
         )
+        t_stage = time.time()
         pbar = tqdm(desc="infer", unit="batch")
 
         def _cb(done: int, total: int) -> None:
@@ -391,56 +421,57 @@ def main() -> None:
             progress_cb=_cb,
         )
         pbar.close()
+        stage_times["infer"] = time.time() - t_stage
 
         for e, spans in zip(extracted, per_pdf_spans):
             e["token_probs"] = spans
 
-    # ── Stage 3 — annotate + save (threaded) ──
+    # ── Stage 3 — annotate + save (process pool — bypasses Python GIL) ──
     if extracted:
-        from pdf_utils import annotate_pdf
-
         print(
             f"\n[3/3] Annotating + saving {len(extracted)} PDFs "
-            f"({NUM_WORKERS} threads)"
+            f"({NUM_WORKERS} processes)"
         )
+        t_stage = time.time()
 
-        def _save(e: Dict[str, Any]) -> None:
-            try:
-                token_probs = e["token_probs"]
-                valid = [t.prob for t in token_probs if t.char_end > t.char_start]
-                stats = _stats(valid)
-                stats["total_tokens"] = len(token_probs)
+        tasks = [
+            (e["out_path"], e["pdf_bytes"], e["char_spans"], e["token_probs"])
+            for e in extracted
+        ]
 
-                annotated = annotate_pdf(
-                    pdf_bytes=e["pdf_bytes"],
-                    char_spans=e["char_spans"],
-                    token_spans=[
-                        (t.char_start, t.char_end, t.prob) for t in token_probs
-                    ],
-                    color_fn=prob_to_rgb,
-                )
-                e["out_path"].parent.mkdir(parents=True, exist_ok=True)
-                e["out_path"].write_bytes(annotated)
-
-                _write_row(e["rel"], "ok", payload=stats)
-                _bump("ok")
-            except Exception as exc:  # noqa: BLE001
-                _write_row(
-                    e["rel"], "error",
-                    error=f"annotate: {type(exc).__name__}: {exc}",
-                )
-                _bump("annotate_error")
-                traceback.print_exc(file=sys.stderr)
-
-        with ThreadPoolExecutor(max_workers=max(1, NUM_WORKERS)) as pool:
-            futures = [pool.submit(_save, e) for e in extracted]
+        with ProcessPoolExecutor(max_workers=max(1, NUM_WORKERS)) as pool:
+            futures = {
+                pool.submit(_annotate_pdf_worker, t): e
+                for t, e in zip(tasks, extracted)
+            }
             for f in tqdm(
                 as_completed(futures),
                 total=len(futures),
                 desc="save",
                 unit="pdf",
             ):
-                f.result()
+                e = futures[f]
+                try:
+                    result = f.result()
+                except Exception as exc:  # noqa: BLE001
+                    _write_row(
+                        e["rel"], "error",
+                        error=f"annotate: {type(exc).__name__}: {exc}",
+                    )
+                    _bump("annotate_error")
+                    traceback.print_exc(file=sys.stderr)
+                    continue
+
+                if result["status"] == "ok":
+                    _write_row(e["rel"], "ok", payload=result["stats"])
+                    _bump("ok")
+                else:
+                    _write_row(
+                        e["rel"], "error",
+                        error=f"annotate: {result['error']}",
+                    )
+                    _bump("annotate_error")
+        stage_times["save"] = time.time() - t_stage
 
     if csv_fh is not None:
         csv_fh.close()
@@ -448,6 +479,8 @@ def main() -> None:
     total = time.time() - t_start
     print()
     print(f"Done in {total:.1f}s.")
+    for stage, dt in stage_times.items():
+        print(f"  stage {stage:<8} : {dt:6.1f}s")
     print(f"  ok:               {counts['ok']}")
     print(f"  empty:            {counts['empty']}")
     print(f"  skipped existing: {counts['skipped_existing']}")
