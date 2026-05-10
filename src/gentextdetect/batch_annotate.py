@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+from tqdm import tqdm
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -58,9 +59,12 @@ ANNOTATED_SUFFIX: str = "_annotated"
 # dropping legitimate short lines.
 CLEAN_TEXT: bool = True
 
-# Number of worker threads. Inference still serializes on the GPU, but the
-# CPU-bound annotation + IO of one PDF runs concurrently with the inference
-# of the next, so 2-4 workers usually hides annotation cost entirely.
+# Inference batch size for stage 2 (number of chunks fed to the model
+# together). Each chunk is up to MAX_TEXT_LENGTH tokens.
+BATCH_SIZE: int = 4
+
+# Number of threads used in stage 3 (annotate + save). PyMuPDF releases the
+# GIL so this scales well with cores.
 NUM_WORKERS: int = 4
 
 # CSV with one summary row per PDF (path is relative to OUTPUT_DIR if not
@@ -215,39 +219,6 @@ def _stats(probs: List[float]) -> Dict[str, Any]:
     return out
 
 
-def process_pdf(pdf_path: Path, out_path: Path, model, tokenizer) -> dict:
-    from inference import predict_long_text
-    from pdf_utils import annotate_pdf, extract_chars
-
-    pdf_bytes = pdf_path.read_bytes()
-    text, char_spans = extract_chars(pdf_bytes, clean=CLEAN_TEXT)
-    if not text.strip():
-        return {"status": "empty", **_stats([])}
-
-    token_probs = predict_long_text(
-        text=text,
-        model=model,
-        tokenizer=tokenizer,
-        model_type=MODEL_TYPE,
-        device=DEVICE,
-    )
-
-    valid = [t.prob for t in token_probs if t.char_end > t.char_start]
-    stats = _stats(valid)
-    stats["total_tokens"] = len(token_probs)
-
-    annotated = annotate_pdf(
-        pdf_bytes=pdf_bytes,
-        char_spans=char_spans,
-        token_spans=[
-            (t.char_start, t.char_end, t.prob) for t in token_probs
-        ],
-        color_fn=prob_to_rgb,
-    )
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_bytes(annotated)
-    return {"status": "ok", **stats}
 
 
 def _csv_fieldnames() -> List[str]:
@@ -287,6 +258,7 @@ def main() -> None:
     in_dir = Path(INPUT_DIR).resolve()
     out_dir = Path(OUTPUT_DIR).resolve()
 
+    # Validation
     if not in_dir.is_dir():
         sys.exit(f"INPUT_DIR does not exist: {in_dir}")
     if out_dir == in_dir:
@@ -313,30 +285,30 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         sys.exit(f"Failed to load model: {type(exc).__name__}: {exc}")
     print(f"Model ready: {meta}")
-    print()
 
-    counts = {"ok": 0, "skipped_existing": 0, "empty": 0, "error": 0}
     csv_fh, csv_writer = _open_summary_csv(out_dir)
     if csv_fh is not None:
         print(f"Summary CSV: {csv_fh.name}")
-    print(f"Workers: {NUM_WORKERS}")
-    print()
 
     csv_lock = threading.Lock()
+    counts: Dict[str, int] = {
+        "ok": 0,
+        "skipped_existing": 0,
+        "empty": 0,
+        "extract_error": 0,
+        "annotate_error": 0,
+    }
     counts_lock = threading.Lock()
-    print_lock = threading.Lock()
 
-    def _write_row(rel_path: Path, status: str, elapsed: Optional[float],
-                    payload: Optional[Dict[str, Any]] = None,
-                    error: str = "") -> None:
+    def _write_row(rel_path: Path, status: str,
+                   payload: Optional[Dict[str, Any]] = None,
+                   error: str = "") -> None:
         if csv_writer is None:
             return
         row: Dict[str, Any] = {f: "" for f in _csv_fieldnames()}
         row["path"] = str(rel_path).replace("\\", "/")
         row["status"] = status
         row["error"] = error
-        if elapsed is not None:
-            row["elapsed_s"] = round(elapsed, 3)
         if payload:
             for k, v in payload.items():
                 if k in row and v is not None:
@@ -348,88 +320,139 @@ def main() -> None:
             csv_writer.writerow(row)
             csv_fh.flush()
 
-    width = len(str(len(pdfs)))
+    def _bump(key: str) -> None:
+        with counts_lock:
+            counts[key] = counts.get(key, 0) + 1
 
-    def _process_one(idx: int, pdf_path: Path) -> None:
+    t_start = time.time()
+
+    # ── Stage 1 — extract text + bboxes from every PDF (sequential) ──
+    print(f"\n[1/3] Extracting text from {len(pdfs)} PDFs (sequential)")
+    from pdf_utils import extract_chars
+
+    extracted: List[Dict[str, Any]] = []
+    for pdf_path in tqdm(pdfs, desc="extract", unit="pdf"):
         rel = pdf_path.relative_to(in_dir)
         out_name = rel.stem + ANNOTATED_SUFFIX + rel.suffix
         out_path = out_dir / rel.parent / out_name
-        prefix = f"[{idx:>{width}}/{len(pdfs)}]"
 
         if out_path.is_file() and not OVERWRITE:
-            with counts_lock:
-                counts["skipped_existing"] += 1
-            with print_lock:
-                print(f"{prefix} SKIP (exists)   {rel}")
-            _write_row(rel, "skipped_existing", None)
-            return
+            _write_row(rel, "skipped_existing")
+            _bump("skipped_existing")
+            continue
 
-        t0 = time.time()
         try:
-            result = process_pdf(pdf_path, out_path, model, tokenizer)
+            pdf_bytes = pdf_path.read_bytes()
+            text, char_spans = extract_chars(pdf_bytes, clean=CLEAN_TEXT)
         except Exception as exc:  # noqa: BLE001
-            dt = time.time() - t0
-            with counts_lock:
-                counts["error"] += 1
-            with print_lock:
-                print(
-                    f"{prefix} ERROR           {rel}: "
-                    f"{type(exc).__name__}: {exc}",
-                    file=sys.stderr,
-                )
-                traceback.print_exc(file=sys.stderr)
             _write_row(
-                rel, "error", dt,
-                error=f"{type(exc).__name__}: {exc}",
+                rel, "error",
+                error=f"extract: {type(exc).__name__}: {exc}",
             )
-            return
-        dt = time.time() - t0
+            _bump("extract_error")
+            continue
 
-        if result["status"] == "ok":
-            with counts_lock:
-                counts["ok"] += 1
-            mean_str = (
-                f"{result['mean_prob']:.3f}"
-                if result["mean_prob"] is not None
-                else "n/a"
-            )
-            with print_lock:
-                print(
-                    f"{prefix} OK              {rel} — "
-                    f"{result['total_tokens']:>6,} tokens · "
-                    f"mean P(AI)={mean_str} · {dt:5.1f}s"
-                )
-            _write_row(rel, "ok", dt, payload=result)
-        elif result["status"] == "empty":
-            with counts_lock:
-                counts["empty"] += 1
-            with print_lock:
-                print(
-                    f"{prefix} EMPTY           {rel} "
-                    "(no extractable text)"
-                )
-            _write_row(rel, "empty", dt, payload=result)
+        if not text.strip():
+            _write_row(rel, "empty", payload=_stats([]))
+            _bump("empty")
+            continue
 
-    t_start = time.time()
-    try:
+        extracted.append({
+            "rel": rel,
+            "out_path": out_path,
+            "pdf_bytes": pdf_bytes,
+            "text": text,
+            "char_spans": char_spans,
+        })
+
+    # ── Stage 2 — batched LLM inference across all extracted PDFs ──
+    if extracted:
+        from inference import predict_long_text_batched
+
+        print(
+            f"\n[2/3] Running model on {len(extracted)} PDFs "
+            f"(batch={BATCH_SIZE})"
+        )
+        pbar = tqdm(desc="infer", unit="batch")
+
+        def _cb(done: int, total: int) -> None:
+            if pbar.total != total:
+                pbar.reset(total=total)
+            pbar.n = done
+            pbar.refresh()
+
+        per_pdf_spans = predict_long_text_batched(
+            texts=[e["text"] for e in extracted],
+            model=model,
+            tokenizer=tokenizer,
+            model_type=MODEL_TYPE,
+            device=DEVICE,
+            batch_size=BATCH_SIZE,
+            progress_cb=_cb,
+        )
+        pbar.close()
+
+        for e, spans in zip(extracted, per_pdf_spans):
+            e["token_probs"] = spans
+
+    # ── Stage 3 — annotate + save (threaded) ──
+    if extracted:
+        from pdf_utils import annotate_pdf
+
+        print(
+            f"\n[3/3] Annotating + saving {len(extracted)} PDFs "
+            f"({NUM_WORKERS} threads)"
+        )
+
+        def _save(e: Dict[str, Any]) -> None:
+            try:
+                token_probs = e["token_probs"]
+                valid = [t.prob for t in token_probs if t.char_end > t.char_start]
+                stats = _stats(valid)
+                stats["total_tokens"] = len(token_probs)
+
+                annotated = annotate_pdf(
+                    pdf_bytes=e["pdf_bytes"],
+                    char_spans=e["char_spans"],
+                    token_spans=[
+                        (t.char_start, t.char_end, t.prob) for t in token_probs
+                    ],
+                    color_fn=prob_to_rgb,
+                )
+                e["out_path"].parent.mkdir(parents=True, exist_ok=True)
+                e["out_path"].write_bytes(annotated)
+
+                _write_row(e["rel"], "ok", payload=stats)
+                _bump("ok")
+            except Exception as exc:  # noqa: BLE001
+                _write_row(
+                    e["rel"], "error",
+                    error=f"annotate: {type(exc).__name__}: {exc}",
+                )
+                _bump("annotate_error")
+                traceback.print_exc(file=sys.stderr)
+
         with ThreadPoolExecutor(max_workers=max(1, NUM_WORKERS)) as pool:
-            futures = [
-                pool.submit(_process_one, i, p)
-                for i, p in enumerate(pdfs, start=1)
-            ]
-            for f in as_completed(futures):
-                f.result()  # surface any unhandled exception
-    finally:
-        if csv_fh is not None:
-            csv_fh.close()
+            futures = [pool.submit(_save, e) for e in extracted]
+            for f in tqdm(
+                as_completed(futures),
+                total=len(futures),
+                desc="save",
+                unit="pdf",
+            ):
+                f.result()
+
+    if csv_fh is not None:
+        csv_fh.close()
 
     total = time.time() - t_start
     print()
     print(f"Done in {total:.1f}s.")
     print(f"  ok:               {counts['ok']}")
-    print(f"  skipped existing: {counts['skipped_existing']}")
     print(f"  empty:            {counts['empty']}")
-    print(f"  errored:          {counts['error']}")
+    print(f"  skipped existing: {counts['skipped_existing']}")
+    print(f"  extract errors:   {counts['extract_error']}")
+    print(f"  annotate errors:  {counts['annotate_error']}")
     if csv_writer is not None:
         print(f"  summary CSV:      {csv_fh.name}")
 
