@@ -33,7 +33,7 @@ DEVICE: str = "cuda"
 
 # Path to the trained classifier .pt file.
 CHECKPOINT_PATH: str = (
-    "./checkpoints/finetuned/finetuned_model_phi-4_detect-phi-4.pt"
+    "./checkpoints/finetune/finetuned_model_phi-4_master-large.pt"
 )
 
 # ── Baseline-only settings (ignored for finetune) ────────────────────────────

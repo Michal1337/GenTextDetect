@@ -54,7 +54,6 @@ class FineTuneClassifierPhi(nn.Module):
         self.base_model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
             torch_dtype=torch.bfloat16,
-            attn_implementation="flash_attention_2",
             trust_remote_code=True,
         )
 

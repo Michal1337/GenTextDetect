@@ -29,7 +29,7 @@ import numpy as np
 MODEL_TYPE: str = "finetune"  # "baseline" or "finetune"
 DEVICE: str = "cuda"          # "cpu" or "cuda"
 CHECKPOINT_PATH: str = (
-    "./checkpoints/finetuned/finetuned_model_phi-4_detect-phi-4.pt"
+    "./checkpoints/finetune/finetuned_model_phi-4_master-large.pt"
 )
 
 # Baseline-only
@@ -42,8 +42,8 @@ OVERRIDE_BASE_PATH: str = ""
 OVERRIDE_BASE_NAME: str = ""
 
 # IO
-INPUT_DIR: str = "./pdfs_in"
-OUTPUT_DIR: str = "./pdfs_out"
+INPUT_DIR: str = "./paper_data"
+OUTPUT_DIR: str = "./paper_data_annotated"
 
 # If False, files whose annotated output already exists are skipped.
 OVERWRITE: bool = False
