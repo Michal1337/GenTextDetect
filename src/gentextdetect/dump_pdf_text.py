@@ -33,12 +33,20 @@ def main() -> None:
         action="store_true",
         help="Print extraction stats to stderr.",
     )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help=(
+            "Drop math-font spans and lines that look like math fragments "
+            "or plot labels."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.pdf.is_file():
         sys.exit(f"PDF not found: {args.pdf}")
 
-    text, char_spans = extract_chars(args.pdf.read_bytes())
+    text, char_spans = extract_chars(args.pdf.read_bytes(), clean=args.clean)
 
     if args.stats:
         n_real = sum(1 for cs in char_spans if cs is not None)

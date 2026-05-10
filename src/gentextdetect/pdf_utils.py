@@ -21,6 +21,60 @@ class CharSpan:
     bbox: Tuple[float, float, float, float]
 
 
+_MATH_FONT_SUBSTRINGS = (
+    "cmsy", "cmmi", "cmex", "cmbsy", "cmbmi",  # Computer Modern math
+    "msam", "msbm",                              # AMS math
+    "lmmath", "lmsym",                           # Latin Modern math/symbol
+    "stixmath", "stix-math", "stixgeneral-italic",
+    "esint", "rsfs", "wasy",                     # specialty math fonts
+    "mathjax", "xits-math", "xitsmath",
+    "asana-math", "asanamath",
+)
+
+
+def _is_math_font(font_name: str) -> bool:
+    if not font_name:
+        return False
+    name = font_name.lower()
+    if any(pat in name for pat in _MATH_FONT_SUBSTRINGS):
+        return True
+    return ("math" in name) or name.endswith("symbol") or name.endswith("-sym")
+
+
+def _looks_garbled(line_text: str,
+                   min_alpha_ratio: float = 0.5,
+                   min_avg_word_len: float = 2.5,
+                   min_length: int = 5) -> bool:
+    """Heuristic: True for lines that look like math fragments or plot junk."""
+    stripped = line_text.strip()
+    if not stripped:
+        return False
+    if len(stripped) < min_length:
+        return True
+    alpha = sum(1 for c in stripped if c.isalpha())
+    if alpha / len(stripped) < min_alpha_ratio:
+        return True
+    words = stripped.split()
+    if not words:
+        return True
+    avg_word_len = sum(len(w) for w in words) / len(words)
+    if avg_word_len < min_avg_word_len:
+        return True
+    return False
+
+
+def _line_text_for_filtering(line) -> str:
+    parts: List[str] = []
+    for span in line.get("spans", []):
+        if _is_math_font(span.get("font", "")):
+            continue
+        for ch in span.get("chars", []):
+            c = ch.get("c", "")
+            if c:
+                parts.append(c)
+    return "".join(parts)
+
+
 def _sort_blocks_for_reading(blocks, page_width: float, full_width_frac: float = 0.6):
     """Order blocks for column-aware reading order.
 
@@ -51,7 +105,10 @@ def _sort_blocks_for_reading(blocks, page_width: float, full_width_frac: float =
     return sorted(text_blocks, key=sort_key)
 
 
-def extract_chars(pdf_bytes: bytes) -> Tuple[str, List[Optional[CharSpan]]]:
+def extract_chars(
+    pdf_bytes: bytes,
+    clean: bool = False,
+) -> Tuple[str, List[Optional[CharSpan]]]:
     """Return ``(concat_text, char_spans)`` where the two are index-aligned.
 
     For each real character extracted from the PDF the corresponding entry in
@@ -61,6 +118,13 @@ def extract_chars(pdf_bytes: bytes) -> Tuple[str, List[Optional[CharSpan]]]:
 
     Blocks are reordered per page for column-aware reading order so that
     two-column layouts produce coherent prose for the model.
+
+    When ``clean=True``, spans rendered with math fonts (CMSY/CMMI/MSAM/…)
+    are dropped, and lines whose remaining text looks like math fragments or
+    plot labels (low alpha ratio, very short average word length, or simply
+    very short) are skipped entirely. Reduces noise from equations and
+    figure axis labels at the cost of occasionally dropping legitimate short
+    lines (single-word headings, equation captions).
     """
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     pieces: List[str] = []
@@ -74,7 +138,13 @@ def extract_chars(pdf_bytes: bytes) -> Tuple[str, List[Optional[CharSpan]]]:
         )
         for block in ordered_blocks:
             for line in block.get("lines", []):
+                if clean and _looks_garbled(_line_text_for_filtering(line)):
+                    pieces.append("\n")
+                    spans.append(None)
+                    continue
                 for span in line.get("spans", []):
+                    if clean and _is_math_font(span.get("font", "")):
+                        continue
                     for ch in span.get("chars", []):
                         c = ch.get("c", "")
                         if not c:

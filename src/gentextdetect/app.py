@@ -50,6 +50,9 @@ MODEL_ROOT: str = "/mnt/evafs/groups/re-com/mgromadzki/llms/"
 OVERRIDE_BASE_PATH: str = ""
 OVERRIDE_BASE_NAME: str = ""
 
+# PDF tab — drop math-font spans and garbled lines (equations, plot labels).
+CLEAN_PDF_TEXT: bool = True
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 EXPERIMENTS_DIR = (
@@ -397,7 +400,7 @@ def _pdf_tab(model, tokenizer) -> None:
                 "`pip install pymupdf`."
             )
             return
-        text, char_spans = extract_chars(pdf_bytes)
+        text, char_spans = extract_chars(pdf_bytes, clean=CLEAN_PDF_TEXT)
 
     if not text.strip():
         st.warning(

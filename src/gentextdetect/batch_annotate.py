@@ -14,8 +14,10 @@ from __future__ import annotations
 import csv
 import os
 import sys
+import threading
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -50,6 +52,16 @@ OVERWRITE: bool = False
 
 # Appended to each PDF's stem before .pdf — set to "" to keep original names.
 ANNOTATED_SUFFIX: str = "_annotated"
+
+# Drop math-font spans and lines that look like math fragments / plot labels
+# before scoring. Reduces equation/figure noise at the cost of occasionally
+# dropping legitimate short lines.
+CLEAN_TEXT: bool = True
+
+# Number of worker threads. Inference still serializes on the GPU, but the
+# CPU-bound annotation + IO of one PDF runs concurrently with the inference
+# of the next, so 2-4 workers usually hides annotation cost entirely.
+NUM_WORKERS: int = 4
 
 # CSV with one summary row per PDF (path is relative to OUTPUT_DIR if not
 # absolute). Set to "" to disable.
@@ -208,7 +220,7 @@ def process_pdf(pdf_path: Path, out_path: Path, model, tokenizer) -> dict:
     from pdf_utils import annotate_pdf, extract_chars
 
     pdf_bytes = pdf_path.read_bytes()
-    text, char_spans = extract_chars(pdf_bytes)
+    text, char_spans = extract_chars(pdf_bytes, clean=CLEAN_TEXT)
     if not text.strip():
         return {"status": "empty", **_stats([])}
 
@@ -307,7 +319,12 @@ def main() -> None:
     csv_fh, csv_writer = _open_summary_csv(out_dir)
     if csv_fh is not None:
         print(f"Summary CSV: {csv_fh.name}")
-        print()
+    print(f"Workers: {NUM_WORKERS}")
+    print()
+
+    csv_lock = threading.Lock()
+    counts_lock = threading.Lock()
+    print_lock = threading.Lock()
 
     def _write_row(rel_path: Path, status: str, elapsed: Optional[float],
                     payload: Optional[Dict[str, Any]] = None,
@@ -327,64 +344,81 @@ def main() -> None:
                         row[k] = round(v, 6)
                     else:
                         row[k] = v
-        csv_writer.writerow(row)
-        csv_fh.flush()
+        with csv_lock:
+            csv_writer.writerow(row)
+            csv_fh.flush()
 
-    t_start = time.time()
+    width = len(str(len(pdfs)))
 
-    try:
-        for i, pdf_path in enumerate(pdfs, start=1):
-            rel = pdf_path.relative_to(in_dir)
-            out_name = rel.stem + ANNOTATED_SUFFIX + rel.suffix
-            out_path = out_dir / rel.parent / out_name
+    def _process_one(idx: int, pdf_path: Path) -> None:
+        rel = pdf_path.relative_to(in_dir)
+        out_name = rel.stem + ANNOTATED_SUFFIX + rel.suffix
+        out_path = out_dir / rel.parent / out_name
+        prefix = f"[{idx:>{width}}/{len(pdfs)}]"
 
-            prefix = f"[{i:>{len(str(len(pdfs)))}}/{len(pdfs)}]"
-
-            if out_path.is_file() and not OVERWRITE:
+        if out_path.is_file() and not OVERWRITE:
+            with counts_lock:
                 counts["skipped_existing"] += 1
+            with print_lock:
                 print(f"{prefix} SKIP (exists)   {rel}")
-                _write_row(rel, "skipped_existing", None)
-                continue
+            _write_row(rel, "skipped_existing", None)
+            return
 
-            t0 = time.time()
-            try:
-                result = process_pdf(pdf_path, out_path, model, tokenizer)
-            except Exception as exc:  # noqa: BLE001
-                dt = time.time() - t0
+        t0 = time.time()
+        try:
+            result = process_pdf(pdf_path, out_path, model, tokenizer)
+        except Exception as exc:  # noqa: BLE001
+            dt = time.time() - t0
+            with counts_lock:
                 counts["error"] += 1
+            with print_lock:
                 print(
                     f"{prefix} ERROR           {rel}: "
                     f"{type(exc).__name__}: {exc}",
                     file=sys.stderr,
                 )
                 traceback.print_exc(file=sys.stderr)
-                _write_row(
-                    rel, "error", dt,
-                    error=f"{type(exc).__name__}: {exc}",
-                )
-                continue
-            dt = time.time() - t0
+            _write_row(
+                rel, "error", dt,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+            return
+        dt = time.time() - t0
 
-            if result["status"] == "ok":
+        if result["status"] == "ok":
+            with counts_lock:
                 counts["ok"] += 1
-                mean_str = (
-                    f"{result['mean_prob']:.3f}"
-                    if result["mean_prob"] is not None
-                    else "n/a"
-                )
+            mean_str = (
+                f"{result['mean_prob']:.3f}"
+                if result["mean_prob"] is not None
+                else "n/a"
+            )
+            with print_lock:
                 print(
                     f"{prefix} OK              {rel} — "
                     f"{result['total_tokens']:>6,} tokens · "
                     f"mean P(AI)={mean_str} · {dt:5.1f}s"
                 )
-                _write_row(rel, "ok", dt, payload=result)
-            elif result["status"] == "empty":
+            _write_row(rel, "ok", dt, payload=result)
+        elif result["status"] == "empty":
+            with counts_lock:
                 counts["empty"] += 1
+            with print_lock:
                 print(
                     f"{prefix} EMPTY           {rel} "
                     "(no extractable text)"
                 )
-                _write_row(rel, "empty", dt, payload=result)
+            _write_row(rel, "empty", dt, payload=result)
+
+    t_start = time.time()
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, NUM_WORKERS)) as pool:
+            futures = [
+                pool.submit(_process_one, i, p)
+                for i, p in enumerate(pdfs, start=1)
+            ]
+            for f in as_completed(futures):
+                f.result()  # surface any unhandled exception
     finally:
         if csv_fh is not None:
             csv_fh.close()
